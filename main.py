@@ -34,12 +34,15 @@ if autenticado:
             st.rerun()
 
     elif rol == 'cliente':
-        # Vista única para el Cliente
-        mostrar_modulo_pedidos()
-        
-        if st.sidebar.button("Salir / Menú Inicio"):
+        # --- VISTA CLIENTE (DELIVERY) ---
+        # No usamos st.sidebar.selectbox para que no aparezca el menú
+        # Solo dejamos un botón discreto para volver si es necesario
+        if st.sidebar.button("⬅️ Volver al Inicio"):
             st.session_state.clear()
             st.rerun()
+            
+        # Lanzamos el módulo de pedidos a pantalla completa
+        mostrar_modulo_pedidos()
 
 st.title("🍔 Sistema de Gestión HBGS")
 
