@@ -1,6 +1,7 @@
 import streamlit as st
 from database import conectar
-from costos import mostrar_modulo_costos # IMPORTANTE: Agregar esta línea
+from costos import mostrar_modulo_costos
+from recetas import mostrar_modulo_recetas
 
 st.set_page_config(page_title="HBGS - Gestión", layout="wide", page_icon="🍔")
 
@@ -18,5 +19,5 @@ if menu == "Inicio":
     col1.metric("Estado de Conexión", "São Paulo 🚀")
     col2.info("El sistema está listo para registrar insumos.")
 
-elif menu == "Costos (Insumos)":
-    mostrar_modulo_costos() # Aquí es donde ocurre la magia de los insumos
+elif menu == "Recetas (Proyectos)":
+    mostrar_modulo_recetas()
