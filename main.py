@@ -1,10 +1,43 @@
 import streamlit as st
 from database import conectar
+from pedidos import mostrar_modulo_pedidos
 from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 
 st.set_page_config(page_title="HBGS - Gestión", layout="wide", page_icon="🍔")
+
+# 1. Ejecutar Login
+autenticado, rol = login_manager()
+
+if autenticado:
+    if rol == 'admin':
+        # Menú Completo para Karen
+        menu = st.sidebar.selectbox("Gestión Administrativa", 
+            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)"])
+        
+        if menu == "Inicio":
+            st.write("Bienvenida Karen. Aquí ves el control total.")
+        elif menu == "Costos (Insumos)":
+            mostrar_modulo_costos()
+        elif menu == "Recetas (Proyectos)":
+            mostrar_modulo_recetas()
+        elif menu == "Carta":
+            mostrar_modulo_carta()
+        elif menu == "Pedidos (Ventas)":
+            mostrar_modulo_pedidos()
+            
+        if st.sidebar.button("Cerrar Sesión"):
+            st.session_state.clear()
+            st.rerun()
+
+    elif rol == 'cliente':
+        # Vista única para el Cliente
+        mostrar_modulo_pedidos()
+        
+        if st.sidebar.button("Salir / Menú Inicio"):
+            st.session_state.clear()
+            st.rerun()
 
 st.title("🍔 Sistema de Gestión HBGS")
 
