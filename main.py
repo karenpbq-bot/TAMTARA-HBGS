@@ -7,7 +7,12 @@ from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 
 # 1. Configuración de página (SIEMPRE PRIMERO)
-st.set_page_config(page_title="HBGS", layout="wide", page_icon="🍔")
+st.set_page_config(
+    page_title="HBGS",
+    layout="centered", # Centrado se ve mejor en móviles
+    initial_sidebar_state="collapsed", # Esconde el menú lateral al inicio
+    page_icon="🍔"
+)
 
 # 2. Ejecutar el gestor de acceso
 autenticado, rol = login_manager()
