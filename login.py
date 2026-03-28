@@ -7,7 +7,7 @@ def login_manager():
 
     if not st.session_state['autenticado']:
         # 1. Título y Reseña Central
-        st.title("🍕 Bienvenido a HBGS")
+        st.title("🍔 Bienvenido a HBGS")
         
         st.markdown(f"""
         <div style="font-style: italic; border-left: 4px solid #ff4b4b; padding-left: 15px; margin: 30px 0; color: #555; font-size: 1.2em;">
