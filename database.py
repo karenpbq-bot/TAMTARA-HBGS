@@ -14,3 +14,10 @@ def conectar():
 def obtener_insumos():
     db = conectar()
     return db.table("insumos").select("*").order("nombre").execute()
+
+# Agregar esta función al final de database.py
+@st.cache_data(ttl=300)
+def obtener_productos():
+    db = conectar()
+    return db.table("productos").select("*").order("nombre").execute()
+    
