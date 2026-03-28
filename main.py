@@ -1,5 +1,6 @@
 import streamlit as st
 from database import conectar
+from costos import mostrar_modulo_costos # IMPORTANTE: Agregar esta línea
 
 st.set_page_config(page_title="HBGS - Gestión", layout="wide", page_icon="🍔")
 
@@ -18,5 +19,4 @@ if menu == "Inicio":
     col2.info("El sistema está listo para registrar insumos.")
 
 elif menu == "Costos (Insumos)":
-    st.header("📦 Gestión de Insumos")
-    st.write("Próximamente: Formulario para registrar Pan, Carne y Cremas.")
+    mostrar_modulo_costos() # Aquí es donde ocurre la magia de los insumos
