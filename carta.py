@@ -1,12 +1,44 @@
 import streamlit as st
 import pandas as pd
 from database import conectar, obtener_productos, subir_imagen_producto
+from PIL import Image, ImageOps # Usaremos Pillow para el pulido
+import io
+
+def procesar_y_comprimir_imagen(archivo_subido, calidad=75):
+    """
+    Toma un archivo subido, verifica formato, corrige orientación y comprime.
+    Retorna un objeto 'io.BytesIO' listo para subir.
+    """
+    try:
+        # Abrir la imagen con Pillow
+        img = Image.open(archivo_subido)
+        
+        # 1. Corregir orientación EXIF (para que no salga de costado)
+        # Esto soluciona muchos problemas de fotos de celulares.
+        img = ImageOps.exif_transpose(img)
+        
+        # 2. Convertir a RGB (necesario si es PNG con transparencia o formato HEIC)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        
+        # 3. Comprimir y guardar en un buffer de memoria
+        buffer_final = io.BytesIO()
+        
+        # Guardar como JPEG comprimido para máxima velocidad de carga
+        img.save(buffer_final, format="JPEG", quality=calidad, optimize=True)
+        buffer_final.seek(0) # Resetear puntero para lectura
+        
+        return buffer_final
+        
+    except Exception as e:
+        st.error(f"Error procesando la imagen: {e}. Intenta con otro formato.")
+        return None
 
 def mostrar_modulo_carta():
     st.header("📋 Gestión de la Carta (Productos)")
     db = conectar()
     
-    # --- 1. FORMULARIO DE CREACIÓN ---
+    # --- 1. FORMULARIO DE CREACIÓN CON PULIDO AUTOMÁTICO ---
     with st.expander("➕ Registrar Nuevo Producto", expanded=False):
         with st.form("form_nuevo_producto", clear_on_submit=True):
             col1, col2 = st.columns([2, 1])
@@ -15,16 +47,23 @@ def mostrar_modulo_carta():
                 desc = st.text_area("Descripción")
             with col2:
                 precio = st.number_input("Precio Venta (S/.)", min_value=0.0, step=0.50)
-                cat = st.selectbox("Categoría", ["Hamburguesas", "Bebidas", "Complementos", "Promos"])
+                cat = st.selectbox("Categoría", ["Hamburguesas", "Bebidas", "Complementos"])
             
-            foto = st.file_uploader("Foto del producto", type=["jpg", "png", "jpeg"], key="nueva_foto")
+            # Subida sin restricciones de tipo, Pillow se encarga
+            foto = st.file_uploader("Foto del producto (Pulido automático)", type=None, key="nueva_foto")
             
-            if st.form_submit_button("Guardar Producto"):
+            if st.form_submit_button("Guardar Producto Completo"):
                 if nombre and precio > 0:
                     url_foto = None
                     if foto:
-                        nombre_archivo = f"prod_{nombre.lower().replace(' ', '_')}_{foto.name}"
-                        url_foto = subir_imagen_producto(foto, nombre_archivo)
+                        with st.spinner("🔄 Puliendo y subiendo imagen..."):
+                            # PROCESO DE PULIDO AUTOMÁTICO
+                            buffer_pulido = procesar_y_comprimir_imagen(foto)
+                            
+                            if buffer_pulido:
+                                # Usar el buffer pulido para subir
+                                nombre_archivo = f"prod_{nombre.lower().replace(' ', '_')}.jpeg" # Forzamos extensión .jpeg
+                                url_foto = subir_imagen_producto(buffer_pulido, nombre_archivo)
                     
                     db.table("productos").insert({
                         "nombre": nombre, "descripcion": desc, "precio_venta": precio, 
@@ -34,70 +73,30 @@ def mostrar_modulo_carta():
                     st.cache_data.clear()
                     st.rerun()
 
-    # --- 2. GALERÍA Y GESTIÓN DE PRODUCTOS ---
+    # --- 2. GALERÍA DE PRODUCTOS ---
     st.subheader("🖼️ Productos en la Carta")
     res = obtener_productos()
     
     if res.data:
-        for p in res.data:
-            with st.container(border=True):
-                col_img, col_info, col_btns = st.columns([1, 2, 1])
-                
-                # Imagen
-                with col_img:
+        # Usamos un sistema de cuadrícula (grilla)
+        cols = st.columns(3)
+        for idx, p in enumerate(res.data):
+            # i % 3 nos da 0, 1 o 2 para asignar a las columnas
+            with cols[idx % 3]:
+                with st.container(border=True):
                     if p['imagen_url']:
                         st.image(p['imagen_url'], use_container_width=True)
                     else:
                         st.image("https://via.placeholder.com/150?text=Sin+Foto", use_container_width=True)
-                
-                # Información actual
-                with col_info:
-                    st.write(f"### {p['nombre']}")
-                    st.write(f"**Precio:** S/. {p['precio_venta']:.2f} | **Cat:** {p['categoria']}")
-                    st.caption(p['descripcion'])
-                
-                # Botones de Acción
-                with col_btns:
-                    # MODAL DE EDICIÓN
-                    if st.button("📝 Editar", key=f"edit_{p['id']}"):
-                        st.session_state[f"editando_{p['id']}"] = True
                     
-                    # BOTÓN DE ELIMINACIÓN
+                    st.write(f"### {p['nombre']}")
+                    st.write(f"**S/. {p['precio_venta']:.2f}** | *{p['categoria']}*")
+                    st.caption(p['descripcion'])
+                    
+                    # Botón de eliminar con confirmación
                     if st.button("🗑️ Eliminar", key=f"del_{p['id']}", type="secondary"):
                         db.table("productos").delete().eq("id", p['id']).execute()
-                        st.warning(f"Producto {p['nombre']} eliminado.")
                         st.cache_data.clear()
                         st.rerun()
-
-                # Formulario de Edición (se activa al presionar Editar)
-                if st.session_state.get(f"editando_{p['id']}", False):
-                    with st.form(f"form_edit_{p['id']}"):
-                        st.write(f"--- Editando: {p['nombre']} ---")
-                        nuevo_nom = st.text_input("Nombre", value=p['nombre'])
-                        nueva_desc = st.text_area("Descripción", value=p['descripcion'])
-                        nuevo_pre = st.number_input("Precio", value=float(p['precio_venta']))
-                        nueva_cat = st.selectbox("Categoría", ["Hamburguesas", "Bebidas", "Complementos"], index=0)
-                        nueva_foto = st.file_uploader("Cambiar foto (opcional)", type=["jpg", "png"])
-                        
-                        col_save, col_cancel = st.columns(2)
-                        if col_save.form_submit_button("Guardar Cambios"):
-                            url_foto = p['imagen_url'] # Mantener la actual por defecto
-                            if nueva_foto:
-                                nombre_archivo = f"edit_{nuevo_nom.lower().replace(' ', '_')}"
-                                url_foto = subir_imagen_producto(nueva_foto, nombre_archivo)
-                            
-                            db.table("productos").update({
-                                "nombre": nuevo_nom, "descripcion": nueva_desc,
-                                "precio_venta": nuevo_pre, "categoria": nueva_cat,
-                                "imagen_url": url_foto
-                            }).eq("id", p['id']).execute()
-                            
-                            st.session_state[f"editando_{p['id']}"] = False
-                            st.cache_data.clear()
-                            st.rerun()
-                            
-                        if col_cancel.form_submit_button("Cancelar"):
-                            st.session_state[f"editando_{p['id']}"] = False
-                            st.rerun()
     else:
         st.info("La carta está vacía.")
