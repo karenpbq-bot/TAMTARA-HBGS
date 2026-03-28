@@ -6,20 +6,25 @@ from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 
-# Configuración de la página (debe ser la primera orden de Streamlit)
+# 1. Configuración de página (SIEMPRE PRIMERO)
 st.set_page_config(page_title="HBGS", layout="wide", page_icon="🍔")
 
-# 1. Ejecutar Login
+# 2. Ejecutar el gestor de acceso
 autenticado, rol = login_manager()
 
+# 3. Lógica de visualización post-login
 if autenticado:
     if rol == 'admin':
-        # Menú Completo para Karen
-        menu = st.sidebar.selectbox("Gestión Administrativa", 
+        # --- VISTA KAREN (ADMIN) ---
+        st.sidebar.title("🎛️ Panel Admin")
+        menu = st.sidebar.selectbox("Seleccione un Módulo", 
             ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)"])
         
+        # AQUÍ ES DONDE LIMPIAMOS EL CONTENIDO CENTRAL
         if menu == "Inicio":
-            st.write("Bienvenida Karen. Aquí ves el control total.")
+            st.header("👑 Panel de Control")
+            st.info("Bienvenida al centro de mando de HBGS. Usa el menú lateral para gestionar tu negocio.")
+        
         elif menu == "Costos (Insumos)":
             mostrar_modulo_costos()
         elif menu == "Recetas (Proyectos)":
@@ -29,35 +34,17 @@ if autenticado:
         elif menu == "Pedidos (Ventas)":
             mostrar_modulo_pedidos()
             
+        st.sidebar.divider()
         if st.sidebar.button("Cerrar Sesión"):
             st.session_state.clear()
             st.rerun()
 
     elif rol == 'cliente':
         # --- VISTA CLIENTE (DELIVERY) ---
-        # No usamos st.sidebar.selectbox para que no aparezca el menú
-        # Solo dejamos un botón discreto para volver si es necesario
-        if st.sidebar.button("⬅️ Volver al Inicio"):
+        # Botón discreto para volver
+        if st.sidebar.button("⬅️ Inicio"):
             st.session_state.clear()
             st.rerun()
             
-        # Lanzamos el módulo de pedidos a pantalla completa
+        # Solo mostramos el catálogo de pedidos
         mostrar_modulo_pedidos()
-
-st.title("🍔 Sistema de Gestión HBGS")
-
-# Menú lateral modular para navegar entre tus negocios
-menu = st.sidebar.selectbox("Seleccione un Módulo", 
-    ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos", "Inventario"])
-
-if menu == "Inicio":
-            st.header("👑 Panel de Administración")
-            st.write(f"Bienvenida, Karen. Usa el menú lateral para gestionar HBGS.")
-            # Eliminamos métricas de São Paulo y mensajes técnicos
-
-elif menu == "Recetas (Proyectos)":
-    mostrar_modulo_recetas()
-
-elif menu == "Carta":
-    mostrar_modulo_carta()
-    
