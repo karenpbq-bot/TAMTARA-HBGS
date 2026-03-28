@@ -51,12 +51,9 @@ menu = st.sidebar.selectbox("Seleccione un Módulo",
     ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos", "Inventario"])
 
 if menu == "Inicio":
-    st.subheader("Panel de Control")
-    st.write("Bienvenida, Karen. Aquí verás el resumen de tu hamburguesería.")
-    
-    col1, col2 = st.columns(2)
-    col1.metric("Estado de Conexión", "São Paulo 🚀")
-    col2.info("El sistema está listo para registrar insumos.")
+            st.header("👑 Panel de Administración")
+            st.write(f"Bienvenida, Karen. Usa el menú lateral para gestionar HBGS.")
+            # Eliminamos métricas de São Paulo y mensajes técnicos
 
 elif menu == "Recetas (Proyectos)":
     mostrar_modulo_recetas()
