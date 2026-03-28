@@ -1,0 +1,20 @@
+{
+  "name": "HBGS - Hamburguesería",
+  "short_name": "HBGS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff4b4b",
+  "icons": [
+    {
+      "src": "https://tu-url-de-supabase/foto-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://tu-url-de-supabase/foto-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
