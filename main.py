@@ -1,11 +1,13 @@
 import streamlit as st
 from database import conectar
+from login import login_manager
 from pedidos import mostrar_modulo_pedidos
 from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 
-st.set_page_config(page_title="HBGS - Gestión", layout="wide", page_icon="🍔")
+# Configuración de la página (debe ser la primera orden de Streamlit)
+st.set_page_config(page_title="HBGS", layout="wide", page_icon="🍔")
 
 # 1. Ejecutar Login
 autenticado, rol = login_manager()
