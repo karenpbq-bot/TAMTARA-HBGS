@@ -4,56 +4,57 @@ from database import conectar, obtener_insumos
 
 def mostrar_modulo_costos():
     st.header("📦 Gestión de Insumos (Materia Prima)")
+    db = conectar()
     
-    # 1. Formulario para agregar nuevos insumos
-    with st.expander("➕ Registrar Nuevo Insumo / Ingrediente", expanded=False):
-        with st.form("form_insumos"):
+    # 1. FORMULARIO DE REGISTRO
+    with st.expander("➕ Registrar Nuevo Insumo", expanded=False):
+        with st.form("form_nuevo_insumo", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                nombre = st.text_input("Nombre del Insumo", placeholder="Ej: Carne Res 150g")
-                unidad = st.selectbox("Unidad de Medida", ["Unidades", "Kilogramos", "Gramos", "Litros", "Mililitros"])
+                nom = st.text_input("Nombre del Insumo")
+                und = st.selectbox("Unidad", ["Unidades", "Kilogramos", "Gramos", "Litros"])
             with col2:
-                costo = st.number_input("Costo Unitario (S/.)", min_value=0.0, step=0.01, format="%.2f")
-                stock = st.number_input("Stock Inicial", min_value=0.0, step=0.1)
+                costo = st.number_input("Costo Unitario (S/.)", min_value=0.0, step=0.01)
+                stock = st.number_input("Stock Actual", min_value=0.0)
             
-            stock_min = st.number_input("Alerta Stock Mínimo", min_value=0.0, value=10.0)
-            
-            if st.form_submit_button("Guardar en Base de Datos"):
-                if nombre:
-                    try:
-                        db = conectar()
-                        db.table("insumos").insert({
-                            "nombre": nombre,
-                            "unidad_medida": unidad,
-                            "costo_unitario": costo,
-                            "stock_actual": stock,
-                            "stock_minimo": stock_min
-                        }).execute()
-                        st.success(f"✅ {nombre} guardado correctamente.")
-                        st.cache_data.clear() # Limpia el caché para ver el cambio
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al guardar: {e}")
-                else:
-                    st.warning("Por favor, ingresa un nombre para el insumo.")
+            if st.form_submit_button("Guardar Insumo"):
+                db.table("insumos").insert({
+                    "nombre": nom, "unidad_medida": und, 
+                    "costo_unitario": costo, "stock_actual": stock
+                }).execute()
+                st.success("✅ Insumo guardado")
+                st.cache_data.clear()
+                st.rerun()
 
-    # 2. Visualización del Inventario actual
-    st.subheader("📋 Lista de Precios y Stock")
+    # 2. TABLA DE GESTIÓN (EDITAR / ELIMINAR)
+    st.subheader("📋 Lista de Insumos")
     res = obtener_insumos()
     
     if res.data:
-        df = pd.DataFrame(res.data)
-        # Renombrar columnas para que se vea profesional
-        df = df.rename(columns={
-            "nombre": "Insumo",
-            "unidad_medida": "Unidad",
-            "costo_unitario": "Costo (S/.)",
-            "stock_actual": "Stock",
-            "stock_minimo": "Mínimo"
-        })
-        
-        # Mostrar tabla (excluyendo IDs y fechas de creación para limpieza)
-        columnas_ver = ["Insumo", "Unidad", "Costo (S/.)", "Stock", "Mínimo"]
-        st.dataframe(df[columnas_ver], use_container_width=True)
+        for i in res.data:
+            with st.container(border=True):
+                c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+                c1.write(f"**{i['nombre']}** ({i['unidad_medida']})")
+                c2.write(f"S/. {i['costo_unitario']:.2f}")
+                c3.write(f"Stock: {i['stock_actual']}")
+                
+                # Acciones
+                if c4.button("🗑️", key=f"del_ins_{i['id']}"):
+                    db.table("insumos").delete().eq("id", i['id']).execute()
+                    st.cache_data.clear()
+                    st.rerun()
+                
+                # Formulario rápido de edición de precio/stock
+                with st.expander(f"Editar {i['nombre']}"):
+                    with st.form(f"edit_ins_{i['id']}"):
+                        nuevo_p = st.number_input("Nuevo Precio", value=float(i['costo_unitario']))
+                        nuevo_s = st.number_input("Nuevo Stock", value=float(i['stock_actual']))
+                        if st.form_submit_button("Actualizar"):
+                            db.table("insumos").update({
+                                "costo_unitario": nuevo_p, 
+                                "stock_actual": nuevo_s
+                            }).eq("id", i['id']).execute()
+                            st.cache_data.clear()
+                            st.rerun()
     else:
-        st.info("Aún no hay insumos registrados. Usa el formulario de arriba.")
+        st.info("No hay insumos registrados.")
