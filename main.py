@@ -2,6 +2,7 @@ import streamlit as st
 from database import conectar
 from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
+from carta import mostrar_modulo_carta
 
 st.set_page_config(page_title="HBGS - Gestión", layout="wide", page_icon="🍔")
 
@@ -21,3 +22,7 @@ if menu == "Inicio":
 
 elif menu == "Recetas (Proyectos)":
     mostrar_modulo_recetas()
+
+elif menu == "Carta":
+    mostrar_modulo_carta()
+    
