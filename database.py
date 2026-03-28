@@ -24,23 +24,36 @@ def obtener_productos():
 # --- AGREGAR ESTO AL FINAL DE database.py ---
 
 def subir_imagen_producto(archivo_imagen, nombre_archivo):
-    """Sube una imagen al bucket 'fotos_productos' en Supabase."""
+    """Sube una imagen al bucket público de forma forzada."""
     db = conectar()
     try:
+        # 1. Preparar los datos
         img_bytes = archivo_imagen.getvalue()
-        # Subir al Storage
+        
+        # 2. Subir con parámetros de limpieza (upsert=true para sobreescribir)
+        # Forzamos el content-type para que Supabase lo reconozca como imagen
         db.storage.from_("fotos_productos").upload(
             path=nombre_archivo,
             file=img_bytes,
-            file_options={"content-type": archivo_imagen.type, "x-upsert": "true"}
+            file_options={
+                "content-type": "image/jpeg", 
+                "x-upsert": "true"
+            }
         )
-        # Retornar URL pública
-        return db.storage.from_("fotos_productos").get_public_url(nombre_archivo)
+        
+        # 3. Obtener la URL limpia
+        url = db.storage.from_("fotos_productos").get_public_url(nombre_archivo)
+        
+        # Limpieza de parámetros de cache (?t=...)
+        if "?" in url:
+            url = url.split("?")[0]
+            
+        return url
+        
     except Exception as e:
-        st.error(f"Error en Storage: {e}")
+        # Si el error es que ya existe, intentamos solo obtener la URL
+        if "already exists" in str(e):
+            return db.storage.from_("fotos_productos").get_public_url(nombre_archivo).split("?")[0]
+        
+        st.error(f"Error técnico de Storage: {e}")
         return None
-
-@st.cache_data(ttl=300)
-def obtener_productos():
-    db = conectar()
-    return db.table("productos").select("*").order("nombre").execute()
