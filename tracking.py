@@ -25,123 +25,6 @@ def mostrar_ventana_emergente_detalle(pedido):
             st.markdown(f"   └  _Adicionales: {ads}_")
     st.divider()
 
-# --- TABLERO ENCAPSULADO PARA MÁXIMA VELOCIDAD DE INTERCAMBIO ---
-@st.fragment
-def renderizar_flujo_tablero(pedidos_actuales, db, navegacion):
-    # ==========================================
-    # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
-    # ==========================================
-    if navegacion == "🔥 Pedidos en Proceso":
-        pedidos_tablero = [p for p in pedidos_actuales if st.session_state.get(f"archivado_{p['id']}", False) != True]
-        
-        en_cocina = [p for p in pedidos_tablero if p.get('estado') == 'En cocina']
-        listos = [p for p in pedidos_tablero if p.get('estado') == 'Listo']
-        despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
-        entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
-
-        # Títulos de Carriles
-        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
-        with t_col1:
-            st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
-            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
-        with t_col2:
-            st.markdown('<p class="titulo-carril">🛎️ Listo en Barra</p>', unsafe_allow_html=True)
-            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
-        with t_col3:
-            st.markdown('<p class="titulo-carril">🛵 En Camino</p>', unsafe_allow_html=True)
-            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
-        with t_col4:
-            st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
-            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        # 1. COLUMNA: EN COCINA
-        with col1:
-            for p in en_cocina:
-                with st.container(border=True):
-                    cx1, cx2 = st.columns([0.80, 0.20])
-                    with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
-                    with cx2:
-                        if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
-                            st.rerun()
-
-        # 2. COLUMNA: LISTO EN BARRA
-        with col2:
-            for p in listos:
-                with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
-                    with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
-                    with cx2:
-                        siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
-                        if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
-                            st.rerun()
-                    with cx3:
-                        if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
-                            st.rerun()
-
-        # 3. COLUMNA: EN CAMINO
-        with col3:
-            for p in despachados:
-                with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
-                    with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega']})</span></p>', unsafe_allow_html=True)
-                    with cx2:
-                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
-                            st.rerun()
-                    with cx3:
-                        if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
-                            st.rerun()
-
-        # 4. COLUMNA: ENTREGADO
-        with col4:
-            for p in entregados:
-                with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
-                    with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega']})</span></p>', unsafe_allow_html=True)
-                    with cx2:
-                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
-                            st.session_state[f"archivado_{p['id']}"] = True
-                            st.rerun()
-                    with cx3:
-                        if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
-                            anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
-                            db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
-                            st.rerun()
-
-    # ==========================================
-    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
-    # ==========================================
-    elif navegacion == "🗄️ Pedidos Cerrados":
-        st.markdown("### 🗄️ Historial de Órdenes Archivadas")
-        
-        archivados_del_turno = [p for p in pedidos_actuales if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
-        
-        if not archivados_del_turno:
-            st.info("No se registran pedidos archivados en esta sesión.")
-        else:
-            for p in archivados_del_turno:
-                with st.container(border=True):
-                    ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
-                    with ch1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
-                    with ch2:
-                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
-                            mostrar_ventana_emergente_detalle(p)
-                    with ch3:
-                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
-                            st.session_state[f"archivado_{p['id']}"] = False
-                            st.rerun()
-
 def mostrar_modulo_tracking():
     # --- CSS MÍNIMO SÓLO PARA ESTRUCTURA ANCHA ---
     st.markdown("""
@@ -201,7 +84,7 @@ def mostrar_modulo_tracking():
         st.info("No hay registros de pedidos en el sistema actualmente.")
         return
 
-    # --- CABECERA INTEGRADA HORIZONTAL ---
+    # --- CABECERA INTEGRADA HORIZONTAL CORREGIDA (Distribución 0.3 a 0.7 para expandir el filtro) ---
     c_nav1, c_nav2 = st.columns([0.3, 0.7])
     
     with c_nav1:
@@ -228,5 +111,117 @@ def mostrar_modulo_tracking():
     else:
         pedidos_filtrados = todos_los_pedidos
 
-    # Invocar al renderizador fragmentado
-    renderizar_flujo_tablero(pedidos_filtrados, db, navegacion)
+    # ==========================================
+    # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
+    # ==========================================
+    if navegacion == "🔥 Pedidos en Proceso":
+        # Se filtran los pedidos que pertenecen al flujo activo del tablero
+        pedidos_tablero = [p for p in pedidos_filtrados if st.session_state.get(f"archivado_{p['id']}", False) != True]
+        
+        en_cocina = [p for p in pedidos_tablero if p.get('estado') == 'En cocina']
+        listos = [p for p in pedidos_tablero if p.get('estado') == 'Listo']
+        despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
+        entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
+
+        # Títulos de Carriles
+        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
+        with t_col1:
+            st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+        with t_col2:
+            st.markdown('<p class="titulo-carril">🛎️ Listo en Barra</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+        with t_col3:
+            st.markdown('<p class="titulo-carril">🛵 En Camino</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+        with t_col4:
+            st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        # 1. COLUMNA: EN COCINA
+        with col1:
+            for p in en_cocina:
+                with st.container(border=True):
+                    cx1, cx2 = st.columns([0.80, 0.20])
+                    with cx1:
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                    with cx2:
+                        if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
+                            st.rerun()
+
+        # 2. COLUMNA: LISTO EN BARRA
+        with col2:
+            for p in listos:
+                with st.container(border=True):
+                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
+                    with cx1:
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                    with cx2:
+                        siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
+                        if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
+                            st.rerun()
+                    with cx3:
+                        if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
+                            st.rerun()
+
+        # 3. COLUMNA: EN CAMINO
+        with col3:
+            for p in despachados:
+                with st.container(border=True):
+                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
+                    with cx1:
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                    with cx2:
+                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
+                            st.rerun()
+                    with cx3:
+                        if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
+                            st.rerun()
+
+        # 4. COLUMNA: ENTREGADO
+        with col4:
+            for p in entregados:
+                with st.container(border=True):
+                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
+                    with cx1:
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega']})</span></p>', unsafe_allow_html=True)
+                    with cx2:
+                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
+                            st.session_state[f"archivado_{p['id']}"] = True
+                            st.rerun()
+                    with cx3:
+                        if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
+                            anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
+                            db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
+                            st.rerun()
+
+    # ==========================================
+    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
+    # ==========================================
+    elif navegacion == "🗄️ Pedidos Cerrados":
+        st.markdown("### 🗄️ Historial de Órdenes Archivadas")
+        
+        archivados_del_turno = [p for p in pedidos_filtrados if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
+        
+        if not archivados_del_turno:
+            st.info("No se registran pedidos archivados en esta sesión.")
+        else:
+            for p in archivados_del_turno:
+                with st.container(border=True):
+                    ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
+                    with ch1:
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
+                    with ch2:
+                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
+                            mostrar_ventana_emergente_detalle(p)
+                    with ch3:
+                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
+                            st.session_state[f"archivado_{p['id']}"] = False
+                            st.rerun()
