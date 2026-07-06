@@ -9,7 +9,7 @@ def mostrar_modulo_pedidos():
     if 'paso_pedido' not in st.session_state:
         st.session_state.paso_pedido = 1  # 1: Selección, 2: Pasarela de Pago
 
-    st.header("🛒 Terminal de Pedidos HBGS")
+    st.header("🛒 Terminal de Pedidos La Exacta")
     
     # --- CONTROL DE IDENTIFICACIÓN (Estilo KFC / Bembos / Counter) ---
     nombre_cliente = st.text_input(
