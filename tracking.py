@@ -3,19 +3,41 @@ import pandas as pd
 from database import conectar
 from datetime import datetime
 
+# --- VENTANA EMERGENTE PARA DETALLE DE RECLAMOS (AUDITORÍA DE PRODUCTOS) ---
+@st.dialog("📋 Detalle del Pedido Cerrado")
+def mostrar_ventana_emergente_detalle(pedido):
+    st.markdown(f"### 🪪 Pedido N° {pedido['codigo_exacta']}")
+    st.markdown(f"**Cliente:** {pedido['cliente']} | **Entrega:** {pedido['tipo_entrega']} (`{pedido['destino_entrega']}`)")
+    st.markdown(f"**Monto Cobrado:** S/. {pedido['monto_total']:.2f} | **Forma de Pago:** {pedido['metodo_pago']}")
+    if pedido.get('num_operacion'):
+        st.caption(f"Ref. Operación: {pedido['num_operacion']}")
+    
+    st.divider()
+    st.markdown("**🍟 Productos Consumidos:**")
+    
+    for item in pedido.get('items', []):
+        p_ad_item = sum(float(a['precio']) for a in item.get('adicionales', []))
+        sub_total_item = (item['precio_base'] + p_ad_item) * item['cantidad']
+        
+        st.markdown(f"**{item['cantidad']}x  {item['nombre']}** — *S/. {sub_total_item:.2f}*")
+        if item.get('adicionales'):
+            ads = ", ".join([f"{a['nombre']} (+S/. {a['precio']:.2f})" for a in item['adicionales']])
+            st.markdown(f"   └  _Adicionales: {ads}_")
+    st.divider()
+
 def mostrar_modulo_tracking():
-    # --- CONFIGURACIÓN DE PÁGINA ANCHA SEGURA ---
+    # --- CONFIGURACIÓN DE DISEÑO DE PANTALLA ANCHA ---
     try:
         st.set_page_config(layout="wide")
     except:
         pass
 
-    # --- INYECCIÓN DE STYLES CSS DEFINITIVOS (PROPORCIONES, CABECERA Y COLORES VIVOS) ---
+    # --- INYECCIÓN DE STYLES CSS BLINDADOS (SOLUCIÓN DE DESPLAZAMIENTO VERTICAL) ---
     st.markdown("""
         <style>
-            /* Configuración del contenedor principal de la pantalla */
+            /* 1. Forzar un margen superior generoso para que la barra de Streamlit/GitHub no tape nada */
             div.block-container {
-                padding-top: 1.5rem !important;
+                padding-top: 55px !important; 
                 padding-bottom: 1rem !important;
                 padding-left: 1rem !important;
                 padding-right: 1rem !important;
@@ -34,14 +56,14 @@ def mostrar_modulo_tracking():
                 border: 1px solid #e9ecef !important;
             }
             
-            /* Separador horizontal entre cabeceras y flujo */
+            /* Línea divisoria horizontal limpia */
             .linea-division {
                 border-top: 2px solid #343a40 !important;
                 margin-top: 2px !important;
                 margin-bottom: 6px !important;
             }
             
-            /* Estructura ultra-plana para las tarjetas de los pedidos */
+            /* Hacer los rectángulos de cada pedido sumamente planos */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
                 padding: 2px 6px !important;
                 margin-bottom: 2px !important;
@@ -51,7 +73,7 @@ def mostrar_modulo_tracking():
                 width: 100% !important;
             }
             
-            /* Texto resumido en un solo renglón continuo */
+            /* Texto micro en una sola línea continua sin saltos */
             div[data-testid="stBlock"] div[data-testid="element-container"] p {
                 font-size: 0.72rem !important;
                 margin: 0 !important;
@@ -61,7 +83,7 @@ def mostrar_modulo_tracking():
                 line-height: 22px !important;
             }
             
-            /* Nivelación e inicio superior estricto para que los textos no floten al centro */
+            /* ALINEACIÓN VERTICAL EXCLUSIVA PARA TARJETAS (EVITA QUE FLOTEN AL CENTRO) */
             div.stContainer div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
                 align-items: flex-start !important;
@@ -73,17 +95,13 @@ def mostrar_modulo_tracking():
                 align-content: flex-start !important;
             }
             
-            /* Estilización del selector de navegación superior (Simulador de pestañas estable) */
-            div[data-testid="stSidebarNav"] + div div[data-testid="stWidgetLabel"] {
-                display: none !important;
-            }
-            
             /* =======================================================
-               🔥 REGLAS MAESTRAS DE COLOR DE BOTONES
+               🔥 RESTABLECIMIENTO DE COLORES ESPECÍFICOS DE BOTONES
                ======================================================= */
-            /* Botón Avanzar y Archivar (VERDE SÓLIDO) */
+            /* Botón Avanzar, Archivar y Ver Detalle (VERDE) */
             div.stButton > button[key*="fwd_"],
-            div.stButton > button[key*="arc_"] {
+            div.stButton > button[key*="arc_"],
+            div.stButton > button[key*="pop_"] {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
@@ -95,12 +113,13 @@ def mostrar_modulo_tracking():
                 padding: 0px !important;
             }
             div.stButton > button[key*="fwd_"]:hover,
-            div.stButton > button[key*="arc_"]:hover {
+            div.stButton > button[key*="arc_"]:hover,
+            div.stButton > button[key*="pop_"]:hover {
                 background-color: #218838 !important;
                 border-color: #218838 !important;
             }
 
-            /* Botón Retroceder y Devolver al Tablero (AZUL SÓLIDO) */
+            /* Botón Retroceder y Devolver al Tablero Activo (AZUL) */
             div.stButton > button[key*="rev_"] {
                 background-color: #007bff !important;
                 color: white !important;
@@ -125,7 +144,7 @@ def mostrar_modulo_tracking():
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
     except Exception as e:
-        st.error(f"Error al conectar con la base de datos: {e}")
+        st.error(f"Error al conectar con Supabase: {e}")
         return
 
     if not todos_los_pedidos:
@@ -141,13 +160,30 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- CONTROL CENTRALIZADO DEL FILTRO EN LA BARRA LATERAL (PROTEGIDO) ---
-    with st.sidebar:
-        st.divider()
-        st.markdown("### 🔍 Rastrear Comanda")
-        busqueda = st.text_input("Ingresa palabra clave:", placeholder="Código, cliente o mesa...", label_visibility="collapsed").strip().lower()
+    # =========================================================================
+    # 🎯 REDISEÑO DE INTERFAZ: CABECERA INTEGRADA TOTALMENTE ACCESIBLE
+    # =========================================================================
+    # Ponemos la navegación y la barra de búsqueda juntas en el área de trabajo principal
+    c_nav1, c_nav2 = st.columns([0.5, 0.5])
+    
+    with c_nav1:
+        # Selector de módulos en formato de botones ejecutivos estables
+        navegacion = st.radio(
+            "Seleccione Vista:",
+            ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        
+    with c_nav2:
+        # Buscador universal inalterable por el CSS lateral
+        busqueda = st.text_input(
+            "", 
+            placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
+            label_visibility="collapsed"
+        ).strip().lower()
 
-    # Filtrado lógico en base al input del sidebar
+    # Filtrado lógico inmediato
     if busqueda:
         pedidos_filtrados = []
         for p in todos_los_pedidos:
@@ -157,17 +193,8 @@ def mostrar_modulo_tracking():
     else:
         pedidos_filtrados = todos_los_pedidos
 
-    # --- NAVEGACIÓN PRINCIPAL: SUSTITUTO ESTABLE DE PESTAÑAS (EVITA COLAPSOS) ---
-    navegacion = st.radio(
-        "Módulo de visualización:",
-        ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    st.markdown("<br>", unsafe_allow_html=True) # Margen de seguridad para bajar los carriles
-
     # ==========================================
-    # VISTA 1: TABLERO KANBAN DE 4 COLUMNAS
+    # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
     # ==========================================
     if navegacion == "🔥 Pedidos en Proceso":
         pedidos_tablero = [p for p in pedidos_filtrados if st.session_state.get(f"archivado_{p['id']}", False) != True]
@@ -177,7 +204,7 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
-        # Cabeceras fijas alineadas horizontalmente
+        # Fila 1: Títulos de Carriles Alineados Estrictamente
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -192,9 +219,10 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
-        # Flujo operativo de las tarjetas
+        # Fila 2: Renderizado de Tarjetas Planas sobre Columnas Expandidas
         col1, col2, col3, col4 = st.columns(4)
 
+        # 1. COLUMNA: EN COCINA
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
@@ -206,6 +234,7 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
+        # 2. COLUMNA: LISTO EN BARRA
         with col2:
             for p in listos:
                 with st.container(border=True):
@@ -222,6 +251,7 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
 
+        # 3. COLUMNA: EN CAMINO
         with col3:
             for p in despachados:
                 with st.container(border=True):
@@ -237,6 +267,7 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
+        # 4. COLUMNA: ENTREGADO
         with col4:
             for p in entregados:
                 with st.container(border=True):
@@ -254,22 +285,28 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # VISTA 2: HISTORIAL DE PEDIDOS CERRADOS
+    # CASO 2: RESTRUCTURACIÓN DE PEDIDOS CERRADOS
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        st.subheader("📋 Historial de Órdenes Archivadas")
+        st.markdown("### 🗄️ Historial de Órdenes Archivadas")
         
         archivados_del_turno = [p for p in pedidos_filtrados if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
         
         if not archivados_del_turno:
-            st.info("No hay pedidos archivados de forma definitiva en el turno actual.")
+            st.info("No se registran pedidos archivados de forma definitiva con los criterios indicados.")
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    ch1, ch2 = st.columns([0.90, 0.10])
+                    # Fila plana de auditoría de 3 secciones
+                    ch1, ch2, ch3 = st.columns([0.76, 0.12, 0.12])
                     with ch1:
-                        st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: S/. {p['monto_total']:.2f}")
+                        st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: **S/. {p['monto_total']:.2f}**")
                     with ch2:
-                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True, help="Regresar al Tablero Active"):
+                        # ACTIVACIÓN DEL BOTÓN DE DETALLE VERDE (OJO)
+                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True, help="Ver desglose completo"):
+                            mostrar_ventana_emergente_detalle(p)
+                    with ch3:
+                        # Botón Azul de Devolución
+                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True, help="Regresar al Tablero Activo"):
                             st.session_state[f"archivado_{p['id']}"] = False
                             st.rerun()
