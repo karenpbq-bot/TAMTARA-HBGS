@@ -4,9 +4,17 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE STYLES CSS ULTRA-COMPACTOS PARA ALINEACIÓN HORIZONTAL ---
+    # --- INYECCIÓN DE STYLES CSS ULTRA-COMPACTOS PARA MÁXIMA DENSIDAD ---
     st.markdown("""
         <style>
+            /* Reducir y estilizar el título principal para que no ocupe espacio */
+            .titulo-tablero {
+                font-size: 1.25rem !important;
+                font-weight: bold !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                line-height: 40px !important; /* Alineado verticalmente con el buscador */
+            }
             /* Reducir títulos de los carriles */
             .stHeading h3 {
                 font-size: 0.90rem !important;
@@ -29,39 +37,60 @@ def mostrar_modulo_tracking():
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                line-height: 22px !important; /* Centrado vertical con los botones */
+                line-height: 22px !important;
             }
             /* Forzar comportamiento en línea de la grilla interna */
             div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
                 align-items: center !important;
             }
-            /* Estilos específicos para el botón Avanzar (Verde) */
-            div.stButton > button[key^="fwd_"], div.stButton > button[key^="arc_"] {
+            
+            /* --- REGLAS ESTRICTAS PARA COLORES DE BOTONES --- */
+            /* Botón Avanzar (">") - FORZADO EN VERDE */
+            div.stButton > button:not([disabled]) p:contains(">"), 
+            div.stButton > button[key*="fwd_"], 
+            div.stButton > button[key*="arc_"] {
                 background-color: #28a745 !important;
                 color: white !important;
-                border: none !important;
+                border: 1px solid #28a745 !important;
                 font-weight: bold !important;
-                padding: 0px !important;
-                font-size: 0.75rem !important;
+                font-size: 0.85rem !important;
                 height: 22px !important;
                 min-height: 22px !important;
+                line-height: 1 !important;
+                padding: 0px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             }
-            /* Estilos específicos para el botón Regresar (Azul) */
-            div.stButton > button[key^="rev_"] {
+            
+            /* Botón Regresar ("<") - FORZADO EN AZUL */
+            div.stButton > button:not([disabled]) p:contains("<"), 
+            div.stButton > button[key*="rev_"] {
                 background-color: #007bff !important;
                 color: white !important;
-                border: none !important;
+                border: 1px solid #007bff !important;
                 font-weight: bold !important;
-                padding: 0px !important;
-                font-size: 0.75rem !important;
+                font-size: 0.85rem !important;
                 height: 22px !important;
                 min-height: 22px !important;
+                line-height: 1 !important;
+                padding: 0px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            div.stButton > button:hover {
+                opacity: 0.9 !important;
+                color: white !important;
+            }
+            /* Reducir el margen superior de las pestañas */
+            div[data-testid="stTabs"] {
+                margin-top: -10px !important;
             }
         </style>
     """, unsafe_allow_html=True)
 
-    st.header("📋 Tablero de Control de Producción - La Exacta")
     db = conectar()
     
     try:
@@ -84,8 +113,12 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- BARRA DE BÚSQUEDA UNIVERSAL ---
-    busqueda = st.text_input("🔍 Filtrar pedido:", placeholder="Escribe código, cliente o mesa...").strip().lower()
+    # --- CABECERA COMPACTA: TÍTULO Y BUSCADOR EN UNA SOLA LÍNEA ---
+    c_header1, c_header2 = st.columns([0.4, 0.6])
+    with c_header1:
+        st.markdown('<p class="titulo-tablero">📋 Tablero de Pedidos</p>', unsafe_allow_html=True)
+    with c_header2:
+        busqueda = st.text_input("", placeholder="🔍 Filtrar por código, cliente o mesa...", label_visibility="collapsed").strip().lower()
 
     if busqueda:
         pedidos_filtrados = []
@@ -117,7 +150,6 @@ def mostrar_modulo_tracking():
             st.divider()
             for p in en_cocina:
                 with st.container(border=True):
-                    # Distribución horizontal optimizada en una sola línea
                     cx1, cx2 = st.columns([0.75, 0.25])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
@@ -138,7 +170,7 @@ def mostrar_modulo_tracking():
                     with cx2:
                         siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": penultimate_status_check if siguiente_estado == "Despachado" else "Entregado"}).update({"estado": siguiente_estado}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
@@ -173,7 +205,6 @@ def mostrar_modulo_tracking():
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
-                        # Reemplazamos el icono por texto plano con estilo verde de avanzar
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar permanentemente"):
                             st.session_state[f"archivado_{p['id']}"] = True
                             st.rerun()
