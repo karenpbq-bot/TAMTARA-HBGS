@@ -7,17 +7,32 @@ from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 
-# --- CONFIGURACIÓN DE IDENTIDAD VISUAL EN LA NUBE ---
-# Apuntamos a la URL directa del logo subido en tu repositorio de GitHub
-URL_LOGO_LA_EXACTA = "https://raw.githubusercontent.com/tamtara-hbgs/main/Logo.png"
-
-# 1. Configuración de página (MODIFICADO: Tu logo real en la pestaña del navegador)
+# 1. Configuración de página base limpia
 st.set_page_config(
     page_title="La Exacta - Hamburguesería",
     layout="centered", 
-    initial_sidebar_state="collapsed", 
-    page_icon=URL_LOGO_LA_EXACTA  # <-- Reemplaza el tronco por la URL de la imagen
+    initial_sidebar_state="collapsed"
 )
+
+# --- INYECCIÓN HTML FORZADA PARA EL FAVICON (Solución Globo Terráqueo) ---
+# Al subir 'logo.png' a GitHub, Streamlit lo expone localmente. Lo inyectamos directo al navegador:
+ruta_logo_png = os.path.join(os.path.dirname(__file__), "logo.png")
+
+if os.path.exists(ruta_logo_png):
+    # Abrimos el archivo en modo binario para codificarlo de forma segura
+    import base64
+    with open(ruta_logo_png, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
+    
+    # Inyectamos el tag HTML en el header del navegador
+    st.markdown(
+        f"""
+        <head>
+            <link rel="icon" type="image/png" href="data:image/png;base64,{encoded_string}">
+        </head>
+        """,
+        unsafe_allow_html=True
+    )
 
 # 2. Ejecutar el gestor de acceso
 autenticado, rol = login_manager()
