@@ -150,6 +150,12 @@ def mostrar_modulo_pedidos():
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
+                    # FORMATEO DE CÓDIGO DDMM-CORRELATIVO PARA LOS TICKETS DE RECOJO
+                    prefijo_hoy = datetime.now().strftime("%d%m")
+                    codigo_ticket_impreso = f"{prefijo_hoy}-{int(id_pedido):03d}"
+                    
+                    st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado con éxito.")
+                    
                     lineas_ticket_productos = []
                     for i in st.session_state.carrito:
                         p_ad_item = sum(float(a['precio']) for a in i['adicionales'])
