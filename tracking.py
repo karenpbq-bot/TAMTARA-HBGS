@@ -26,19 +26,16 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE ESTILOS CSS REVISADA Y BLINDADA ---
+    # --- CSS MÍNIMO SOLO PARA ESTRUCTURA ANCHA (SIN MAQUILLAJE DE COLORES) ---
     st.markdown("""
         <style>
-            /* 1. Configuración del contenedor general en modo ancho */
             div.block-container {
-                padding-top: 55px !important; 
+                padding-top: 2rem !important; 
                 padding-bottom: 1rem !important;
                 padding-left: 1rem !important;
                 padding-right: 1rem !important;
                 max-width: 100% !important;
             }
-
-            /* 2. Cabeceras de los 4 carriles Kanban */
             .titulo-carril {
                 font-size: 0.85rem !important;
                 font-weight: bold !important;
@@ -48,115 +45,46 @@ def mostrar_modulo_tracking():
                 background-color: #f1f3f5 !important;
                 border-radius: 4px !important;
                 border: 1px solid #e9ecef !important;
-                color: #333333 !important;
             }
-
             .linea-division {
                 border-top: 2px solid #343a40 !important;
                 margin-top: 2px !important;
                 margin-bottom: 6px !important;
             }
-
-            /* 3. Rectángulos de los pedidos planos con tipografía micro */
-            div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
-                padding: 3px 6px !important;
-                margin-bottom: 3px !important;
-                border-radius: 4px !important;
-                background-color: #fdfdfd !important;
-                border: 1px solid #cccccc !important;
-                width: 100% !important;
-            }
-
-            /* Letras micro-compactas dentro del recuadro */
-            div[data-testid="stBlock"] div[data-testid="element-container"] p {
-                font-size: 0.75rem !important;
-                margin: 0 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                line-height: 24px !important;
-                color: #222222 !important;
-            }
-
-            /* 4. ALINEACIÓN CORREGIDA (Estilo base original sin forzar el techo vertical) */
-            div.stContainer div[data-testid="stHorizontalBlock"] {
-                gap: 4px !important;
-                align-items: baseline !important;
-            }
-
-            /* =======================================================
-               🎨 INYECCIÓN TOTAL DE COLOR A BOTONES NATIVOS
-               ======================================================= */
-            
-            /* ---- BOTONES DE AVANCE, ARCHIVADO Y DETALLE (VERDE) ---- */
-            div.stButton > button[key*="fwd_"], 
-            div.stButton > button[key*="arc_"], 
-            div.stButton > button[key*="pop_"] {
-                background-color: #28a745 !important;
-                border: 1px solid #28a745 !important;
-                border-radius: 4px !important;
-                height: 24px !important;
-                padding: 0px 8px !important;
-                min-height: 24px !important;
-            }
-            
-            /* Forzar texto interno en blanco y negrita para botones verdes */
-            div.stButton > button[key*="fwd_"] p,
-            div.stButton > button[key*="arc_"] p,
-            div.stButton > button[key*="pop_"] p {
-                color: #ffffff !important;
-                font-size: 0.85rem !important;
-                font-weight: bold !important;
-                line-height: 24px !important;
-            }
-
-            /* ---- BOTONES DE RETROCESO (AZUL) ---- */
-            div.stButton > button[key*="rev_"] {
-                background-color: #007bff !important;
-                border: 1px solid #007bff !important;
-                border-radius: 4px !important;
-                height: 24px !important;
-                padding: 0px 8px !important;
-                min-height: 24px !important;
-            }
-            
-            /* Forzar texto interno en blanco y negrita para botones azules */
-            div.stButton > button[key*="rev_"] p {
-                color: #ffffff !important;
-                font-size: 0.85rem !important;
-                font-weight: bold !important;
-                line-height: 24px !important;
-            }
-
-            /* Ajuste de hovers para mantener consistencia visual */
-            div.stButton > button[key*="fwd_"]:hover { background-color: #218838 !important; }
-            div.stButton > button[key*="rev_"]:hover { background-color: #0069d9 !important; }
         </style>
     """, unsafe_allow_html=True)
 
     db = conectar()
     
-    try:
-        res = db.table("pedidos").select("*").order("id").execute()
-        todos_los_pedidos = res.data if res.data else []
-    except Exception as e:
-        st.error(f"Error al conectar con Supabase: {e}")
-        return
+    # --- CARGA OPTIMIZADA EN MEMORIA VIVA ---
+    # Solo consultamos a internet la primera vez o si la memoria está vacía
+    if 'lista_pedidos_tracking' not in st.session_state:
+        try:
+            res = db.table("pedidos").select("*").order("id").execute()
+            todos_los_pedidos = res.data if res.data else []
+            
+            # Formatear el código DDMM una sola vez al descargar
+            for p in todos_los_pedidos:
+                try:
+                    dt = datetime.fromisoformat(p['created_at'].replace('Z', '+00:00'))
+                    prefijo_fecha = dt.strftime("%d%m")
+                except:
+                    prefijo_fecha = datetime.now().strftime("%d%m")
+                p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
+                
+            st.session_state.lista_pedidos_tracking = todos_los_pedidos
+        except Exception as e:
+            st.error(f"Error al conectar con la base de datos: {e}")
+            return
 
-    if not todos_los_pedidos:
+    # Usamos los pedidos guardados en la memoria del navegador
+    pedidos_actuales = st.session_state.lista_pedidos_tracking
+
+    if not pedidos_actuales:
         st.info("No hay registros de pedidos en el sistema.")
         return
 
-    # --- LÓGICA DE FORMATEO: CÓDIGO DDMM-CORRELATIVO ---
-    for p in todos_los_pedidos:
-        try:
-            dt = datetime.fromisoformat(p['created_at'].replace('Z', '+00:00'))
-            prefijo_fecha = dt.strftime("%d%m")
-        except:
-            prefijo_fecha = datetime.now().strftime("%d%m")
-        p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
-
-    # --- CABECERA INTEGRADA ---
+    # --- CABECERA INTEGRADA HORIZONTAL ---
     c_nav1, c_nav2 = st.columns([0.4, 0.6])
     
     with c_nav1:
@@ -174,14 +102,14 @@ def mostrar_modulo_tracking():
             label_visibility="collapsed"
         ).strip().lower()
 
+    # Filtrado en memoria (instantáneo)
     if busqueda:
-        pedidos_filtrados = []
-        for p in todos_los_pedidos:
-            cadena_auditoria = f"{p['codigo_exacta']} {p['cliente']} {p.get('destino_entrega','')}".lower()
-            if busqueda in cadena_auditoria:
-                pedidos_filtrados.append(p)
+        pedidos_filtrados = [
+            p for p in pedidos_actuales 
+            if busqueda in f"{p['codigo_exacta']} {p['cliente']} {p.get('destino_entrega','')}".lower()
+        ]
     else:
-        pedidos_filtrados = todos_los_pedidos
+        pedidos_filtrados = pedidos_actuales
 
     # ==========================================
     # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
@@ -194,6 +122,7 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
+        # Títulos de Carriles
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -210,54 +139,65 @@ def mostrar_modulo_tracking():
 
         col1, col2, col3, col4 = st.columns(4)
 
+        # 1. COLUMNA: EN COCINA
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2 = st.columns([0.82, 0.18])
+                    cx1, cx2 = st.columns([0.80, 0.20])
                     with cx1:
-                        st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
+                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
                     with cx2:
                         if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
+                            # Cambio en memoria instantáneo
+                            p['estado'] = "Listo"
+                            # Envío silencioso a la base de datos
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
+        # 2. COLUMNA: LISTO EN BARRA
         with col2:
             for p in listos:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.76, 0.12, 0.12])
+                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
+                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
                     with cx2:
-                        siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
+                        siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
+                            p['estado'] = siguiente
+                            db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
+                            p['estado'] = "En cocina"
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
 
+        # 3. COLUMNA: EN CAMINO
         with col3:
             for p in despachados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.76, 0.12, 0.12])
+                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
+                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
                     with cx2:
                         if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
+                            p['estado'] = "Entregado"
                             db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
+                            p['estado'] = "Listo"
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
+        # 4. COLUMNA: ENTREGADO
         with col4:
             for p in entregados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.76, 0.12, 0.12])
+                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
+                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
                     with cx2:
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = True
@@ -265,6 +205,7 @@ def mostrar_modulo_tracking():
                     with cx3:
                         if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
                             anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
+                            p['estado'] = anterior
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -274,16 +215,16 @@ def mostrar_modulo_tracking():
     elif navegacion == "🗄️ Pedidos Cerrados":
         st.markdown("### 🗄️ Historial de Órdenes Archivadas")
         
-        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
+        archivados_del_turno = [p for p in pedidos_filtrados if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
         
         if not archivados_del_turno:
-            st.info("No se registran pedidos archivados de forma definitiva en el turno actual.")
+            st.info("No se registran pedidos archivados en esta sesión.")
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    ch1, ch2, ch3 = st.columns([0.76, 0.12, 0.12])
+                    ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
                     with ch1:
-                        st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: **S/. {p['monto_total']:.2f}**")
+                        st.write(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} (`{p['destino_entrega']}`) • Total: **S/. {p['monto_total']:.2f}**")
                     with ch2:
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
