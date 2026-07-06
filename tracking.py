@@ -4,7 +4,7 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE STYLES CSS CORREGIDOS (CABECERA PROTEGIDA Y ALINEACIÓN DE TARJETAS) ---
+    # --- INYECCIÓN DE STYLES CSS DEFINITIVOS (CABECERA PROTEGIDA Y ALINEACIÓN DE TARJETAS) ---
     st.markdown("""
         <style>
             /* Eliminar márgenes internos de Streamlit para aprovechar toda la pantalla */
@@ -58,8 +58,6 @@ def mostrar_modulo_tracking():
             /* =======================================================
                🎯 ALINEACIÓN VERTICAL EXCLUSIVA PARA TARJETAS
                ======================================================= */
-            /* Se añade el prefijo '.stContainer' para asegurar que SOLO afecte 
-               a las columnas que están dentro de las tarjetas de pedidos */
             div.stContainer div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
                 align-items: flex-start !important;
@@ -71,18 +69,9 @@ def mostrar_modulo_tracking():
                 align-content: flex-start !important;
             }
             
-            /* Estilo del título del tablero */
-            .titulo-tablero {
-                font-size: 1.20rem !important;
-                font-weight: bold !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                line-height: 35px !important;
-                color: #31333F !important;
-            }
-            
+            /* Ajustar margen de las pestañas al no haber título */
             div[data-testid="stTabs"] {
-                margin-top: -10px !important;
+                margin-top: 0px !important;
             }
             
             /* =======================================================
@@ -148,12 +137,10 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- CABECERA COMPACTA PROTEGIDA ---
-    c_header1, c_header2 = st.columns([0.3, 0.7])
-    with c_header1:
-        st.markdown('<p class="titulo-tablero">📋 Tablero de Pedidos</p>', unsafe_allow_html=True)
-    with c_header2:
-        busqueda = st.text_input("", placeholder="🔍 Filtrar por código, cliente o mesa...", label_visibility="collapsed").strip().lower()
+    # --- UBICACIÓN DEL FILTRO EN LA BARRA LATERAL (ASEGURA VISIBILIDAD) ---
+    with st.sidebar:
+        st.markdown("### 🔍 Buscar Pedido")
+        busqueda = st.text_input("", placeholder="Código, cliente o mesa...", label_visibility="collapsed").strip().lower()
 
     if busqueda:
         pedidos_filtrados = []
@@ -164,7 +151,8 @@ def mostrar_modulo_tracking():
     else:
         pedidos_filtrados = todos_los_pedidos
 
-    tab_proceso, tab_historial = st.tabs(["🔥 Pedidos en Proceso (Tablero)", "🗄️ Historial de Archivados"])
+    # Nombres de pestañas simplificados según requerimiento
+    tab_proceso, tab_historial = st.tabs(["Pedidos en Proceso", "Pedidos Cerrados"])
 
     # ==========================================
     # PESTAÑA 1: TABLERO KANBAN DE 4 COLUMNAS
@@ -217,7 +205,7 @@ def mostrar_modulo_tracking():
                     with cx2:
                         siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": Harris_estado}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
@@ -258,7 +246,7 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # PESTAÑA 2: HISTORIAL DE ARCHIVADOS
+    # PESTAÑA 2: PEDIDOS CERRADOS
     # ==========================================
     with tab_historial:
         st.subheader("📋 Historial de Órdenes Archivadas")
