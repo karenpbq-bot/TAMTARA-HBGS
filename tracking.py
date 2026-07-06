@@ -26,7 +26,7 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CSS MÍNIMO SOLO PARA ESTRUCTURA ANCHA (SIN MAQUILLAJE DE COLORES) ---
+    # --- CSS MÍNIMO SÓLO PARA ESTRUCTURA ANCHA ---
     st.markdown("""
         <style>
             div.block-container {
@@ -57,13 +57,11 @@ def mostrar_modulo_tracking():
     db = conectar()
     
     # --- CARGA OPTIMIZADA EN MEMORIA VIVA ---
-    # Solo consultamos a internet la primera vez o si la memoria está vacía
     if 'lista_pedidos_tracking' not in st.session_state:
         try:
             res = db.table("pedidos").select("*").order("id").execute()
             todos_los_pedidos = res.data if res.data else []
             
-            # Formatear el código DDMM una sola vez al descargar
             for p in todos_los_pedidos:
                 try:
                     dt = datetime.fromisoformat(p['created_at'].replace('Z', '+00:00'))
@@ -77,15 +75,14 @@ def mostrar_modulo_tracking():
             st.error(f"Error al conectar con la base de datos: {e}")
             return
 
-    # Usamos los pedidos guardados en la memoria del navegador
     pedidos_actuales = st.session_state.lista_pedidos_tracking
 
     if not pedidos_actuales:
         st.info("No hay registros de pedidos en el sistema.")
         return
 
-    # --- CABECERA INTEGRADA HORIZONTAL ---
-    c_nav1, c_nav2 = st.columns([0.4, 0.6])
+    # --- CABECERA INTEGRADA HORIZONTAL CORREGIDA (Distribución 0.3 a 0.7 para expandir el filtro) ---
+    c_nav1, c_nav2 = st.columns([0.3, 0.7])
     
     with c_nav1:
         navegacion = st.radio(
@@ -102,7 +99,6 @@ def mostrar_modulo_tracking():
             label_visibility="collapsed"
         ).strip().lower()
 
-    # Filtrado en memoria (instantáneo)
     if busqueda:
         pedidos_filtrados = [
             p for p in pedidos_actuales 
@@ -145,12 +141,11 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2 = st.columns([0.80, 0.20])
                     with cx1:
-                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
+                        # Se aplica el formato de texto pequeño (.caption) para encoger la tipografía
+                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
                     with cx2:
                         if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
-                            # Cambio en memoria instantáneo
                             p['estado'] = "Listo"
-                            # Envío silencioso a la base de datos
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -160,10 +155,11 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
+                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
                     with cx2:
                         siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
+                            p['estado'] = penultimate_status_check if siguiente == "Despachado" else "Entregado"
                             p['estado'] = siguiente
                             db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
                             st.rerun()
@@ -179,7 +175,7 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
+                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
                     with cx2:
                         if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
                             p['estado'] = "Entregado"
@@ -197,7 +193,7 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.write(f"**{p['codigo_exacta']}** {p['cliente']} ({p['destino_entrega']})")
+                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
                     with cx2:
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = True
@@ -224,7 +220,7 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
                     with ch1:
-                        st.write(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} (`{p['destino_entrega']}`) • Total: **S/. {p['monto_total']:.2f}**")
+                        st.caption(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} :green[({p['destino_entrega']})] • Total: **S/. {p['monto_total']:.2f}**")
                     with ch2:
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
