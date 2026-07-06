@@ -3,20 +3,27 @@ import pandas as pd
 from database import conectar, obtener_productos
 
 def mostrar_modulo_pedidos():
-    # Inicializar el carrito en la sesión si no existe
     if 'carrito' not in st.session_state:
         st.session_state.carrito = []
     if 'paso_pedido' not in st.session_state:
-        st.session_state.paso_pedido = 1 # 1: Selección, 2: Pago
+        st.session_state.paso_pedido = 1 
 
-    # --- PASO 1: SELECCIÓN DE PRODUCTOS Y COMBOS ---
+    # --- CONTROL DE IDENTIFICACIÓN (Estilo KFC / Bembos) ---
+    st.header("🛒 Terminal de Pedidos HBGS")
+    
+    # El nombre se registra desde el inicio para que el counter o el cliente queden indexados
+    nombre_cliente = st.text_input("👤 Nombre del Cliente / N° Mesa:", 
+                                   value=st.session_state.get('cliente_actual', ''),
+                                   placeholder="Ej: Juan Perez / Mesa 4")
+    st.session_state['cliente_actual'] = nombre_cliente
+
     if st.session_state.paso_pedido == 1:
-        st.header("🛒 Arma tu Pedido")
         res = obtener_productos()
         
         if res.data:
-            # Filtrar solo productos vigentes
-            productos = [p for p in res.data if p.get('vigente', True)]
+            # Separamos platos principales de los adicionales/complementos
+            productos = [p for p in res.data if p.get('vigente', True) and p.get('categoria') != 'Complementos']
+            complementos = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Complementos']
             
             for p in productos:
                 with st.container(border=True):
@@ -25,58 +32,36 @@ def mostrar_modulo_pedidos():
                         img = p['imagen_url'] if p['imagen_url'] else "https://via.placeholder.com/150"
                         st.image(img, use_container_width=True)
                     with c2:
-                        etiqueta_combo = " 🍟 [COMBO]" if p.get('es_combo') else ""
+                        etiqueta_combo = " 🍟 [COMBO]" if p.get('es_combo') else \"\"
                         st.subheader(f"{p['nombre']}{etiqueta_combo}")
                         st.write(p['descripcion'])
                         st.write(f"**S/. {p['precio_venta']:.2f}**")
+                        
+                        # --- VENTANA EMERGENTE PARA ADICIONALES (POPOVER) ---
+                        adicionales_seleccionados = []
+                        with st.popover("➕ Agregar Complementos / Salsas", use_container_width=True):
+                            st.caption("Selecciona los adicionales para este producto:")
+                            for comp in complementos:
+                                precio_comp = f"(+ S/. {comp['precio_venta']:.2f})" if comp['precio_venta'] > 0 else "(Gratis)"
+                                if st.checkbox(f"{comp['nombre']} {precio_comp}", key=f"comp_{p['id']}_{comp['id'] concrete}"):
+                                    adicionales_seleccionados.append({
+                                        "nombre": comp['nombre'],
+                                        "precio": float(comp['precio_venta'])
+                                    })
+                    
                     with c3:
-                        cant = st.number_input("Cantidad", min_value=0, max_value=10, key=f"cant_{p['id']}")
-                        if st.button("Añadir ➕", key=f"add_{p['id']}"):
-                            if cant > 0:
+                        cant = st.number_input("Cant", min_value=1, max_value=10, key=f"cant_{p['id']}")
+                        if st.button("🛒 Agregar", key=f"btn_{p['id']}", use_container_width=True, type="primary"):
+                            if not st.session_state['cliente_actual'].strip():
+                                st.error("⚠️ Por favor, ingrese el nombre del cliente antes de agregar productos.");
+                            else:
+                                # Inyección estructurada al carrito de la sesión
                                 st.session_state.carrito.append({
-                                    "id": p['id'], "nombre": p['nombre'], 
-                                    "precio": p['precio_venta'], "cantidad": cant
+                                    "id_producto": p['id'],
+                                    "nombre": p['nombre'],
+                                    "precio_base": float(p['precio_venta']),
+                                    "cantidad": cant,
+                                    "adicionales": adicionales_seleccionados
                                 })
-                                st.toast(f"Añadido: {p['nombre']}")
-
-        # Barra lateral del Carrito
-        with st.sidebar:
-            st.header("📋 Resumen")
-            total = 0
-            for i, item in enumerate(st.session_state.carrito):
-                subtotal = item['precio'] * item['cantidad']
-                total += subtotal
-                st.write(f"{item['cantidad']}x {item['nombre']} - S/. {subtotal:.2f}")
-                if st.button("❌", key=f"del_car_{i}"):
-                    st.session_state.carrito.pop(i)
-                    st.rerun()
-            
-            st.divider()
-            st.subheader(f"Total: S/. {total:.2f}")
-            if total > 0:
-                if st.button("✅ Ir a Pagar", use_container_width=True):
-                    st.session_state.paso_pedido = 2
-                    st.rerun()
-
-    # --- PASO 2: PASARELA DE PAGO ---
-    elif st.session_state.paso_pedido == 2:
-        st.header("💳 Finalizar Pedido")
-        if st.button("⬅️ Volver a la Carta"):
-            st.session_state.paso_pedido = 1
-            st.rerun()
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("Método de Pago")
-            pago = st.radio("Seleccione:", ["Yape / Plin", "Tarjeta (Tukuy)", "Efectivo"])
-            st.text_input("Nombre de quien recoge")
-            st.text_input("WhatsApp de contacto")
-        
-        with col2:
-            total_final = sum(item['precio'] * item['cantidad'] for item in st.session_state.carrito)
-            st.metric("Monto Total", f"S/. {total_final:.2f}")
-            if st.button("🚀 Confirmar Pedido", type="primary", use_container_width=True):
-                st.balloons()
-                st.success("¡Pedido enviado a cocina!")
-                st.session_state.carrito = []
-                st.session_state.paso_pedido = 1
+                                st.success(f"✅ {p['nombre']} agregado")
+                                st.rerun()
