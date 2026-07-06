@@ -26,10 +26,10 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DIRECTA DE CSS CORREGIDA ---
+    # --- INYECCIÓN DE ESTILOS CSS CON MÁXIMA PRIORIDAD Estructural ---
     st.markdown("""
         <style>
-            /* Uso del 100% de la pantalla de laptops/tablets */
+            /* 1. Uso del 100% de la pantalla */
             div.block-container {
                 padding-top: 55px !important; 
                 padding-bottom: 1rem !important;
@@ -38,7 +38,7 @@ def mostrar_modulo_tracking():
                 max-width: 100% !important;
             }
 
-            /* Cabeceras fijas de los 4 carriles */
+            /* 2. Cabeceras fijas de los 4 carriles */
             .titulo-carril {
                 font-size: 0.82rem !important;
                 font-weight: bold !important;
@@ -57,7 +57,7 @@ def mostrar_modulo_tracking():
                 margin-bottom: 6px !important;
             }
 
-            /* Rectángulos de los pedidos sumamente planos */
+            /* 3. Rectángulos de los pedidos planos */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
                 padding: 1px 4px !important;
                 margin-bottom: 2px !important;
@@ -67,7 +67,7 @@ def mostrar_modulo_tracking():
                 width: 100% !important;
             }
 
-            /* Letras micro-compactas en una sola línea horizontal sin saltos */
+            /* Letras micro-compactas sin saltos */
             div[data-testid="stBlock"] div[data-testid="element-container"] p {
                 font-size: 0.72rem !important;
                 margin: 0 !important;
@@ -78,7 +78,7 @@ def mostrar_modulo_tracking():
                 color: #222222 !important;
             }
 
-            /* Alineación superior absoluta para evitar el centrado vertical */
+            /* 4. Alineación superior absoluta */
             div.stContainer div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
                 align-items: flex-start !important;
@@ -90,10 +90,13 @@ def mostrar_modulo_tracking():
                 align-content: flex-start !important;
             }
 
-            /* Colores de los botones forzados con selectores absolutos de Streamlit */
-            div[data-testid="stAppViewRoot"] button[key*="fwd_"],
-            div[data-testid="stAppViewRoot"] button[key*="arc_"],
-            div[data-testid="stAppViewRoot"] button[key*="pop_"] {
+            /* =======================================================
+               🎨 SELECCIÓN ATÓMICA DE COLORES (NIVEL INYECTOR RAÍZ)
+               ======================================================= */
+            /* Forzar Botón Avanzar, Archivar y Ver Detalle (VERDE SÓLIDO) */
+            button[data-testid*="Button"][key*="fwd_"],
+            button[data-testid*="Button"][key*="arc_"],
+            button[data-testid*="Button"][key*="pop_"] {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
@@ -103,9 +106,21 @@ def mostrar_modulo_tracking():
                 min-height: 22px !important;
                 line-height: 1 !important;
                 padding: 0px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            
+            button[data-testid*="Button"][key*="fwd_"] p,
+            button[data-testid*="Button"][key*="arc_"] p,
+            button[data-testid*="Button"][key*="pop_"] p {
+                color: white !important;
+                font-size: 0.85rem !important;
+                font-weight: bold !important;
             }
 
-            div[data-testid="stAppViewRoot"] button[key*="rev_"] {
+            /* Forzar Botón Retroceder y Volver (AZUL SÓLIDO) */
+            button[data-testid*="Button"][key*="rev_"] {
                 background-color: #007bff !important;
                 color: white !important;
                 border: 1px solid #007bff !important;
@@ -115,6 +130,15 @@ def mostrar_modulo_tracking():
                 min-height: 22px !important;
                 line-height: 1 !important;
                 padding: 0px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            
+            button[data-testid*="Button"][key*="rev_"] p {
+                color: white !important;
+                font-size: 0.85rem !important;
+                font-weight: bold !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -179,6 +203,7 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
+        # Fila 1: Títulos de Carriles Alineados Estrictamente
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -193,6 +218,7 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
+        # Fila 2: Flujo de Tarjetas
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
