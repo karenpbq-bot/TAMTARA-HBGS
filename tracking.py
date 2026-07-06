@@ -4,71 +4,95 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE STYLES CSS ULTRA-MINI (MÁXIMA COMPRESIÓN DE FUENTES) ---
+    # --- CONFIGURACIÓN DE PÁGINA ANCHA ---
+    # Nota: Si ya llamas a st.set_page_config en tu main.py, es ideal asegurarse de que tenga layout="wide"
+    try:
+        st.set_page_config(layout="wide")
+    except:
+        # Si ya se configuró en el main, Streamlit ignorará esta línea sin lanzar error crítico
+        pass
+
+    # --- INYECCIÓN DE STYLES CSS PARA MÁXIMO ANCHO Y DENSIDAD ---
     st.markdown("""
         <style>
-            /* Reducir y estilizar los títulos de los carriles */
+            /* Eliminar márgenes internos de Streamlit para aprovechar toda la pantalla */
+            div.block-container {
+                padding-top: 1rem !important;
+                padding-bottom: 1rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+                max-width: 100% !important;
+            }
+            
+            /* Ajustar títulos de los carriles */
             .titulo-carril {
                 font-size: 0.85rem !important;
                 font-weight: bold !important;
                 margin: 0 !important;
-                padding: 3px 0 !important;
+                padding: 4px 0 !important;
                 text-align: center;
                 background-color: #f1f3f5 !important;
                 border-radius: 4px !important;
                 border: 1px solid #e9ecef !important;
             }
-            /* Línea divisoria horizontal delgada */
+            
+            /* Línea divisoria horizontal */
             .linea-division {
                 border-top: 2px solid #343a40 !important;
                 margin-top: 2px !important;
-                margin-bottom: 4px !important;
+                margin-bottom: 6px !important;
             }
-            /* Hacer los rectángulos de cada pedido sumamente planos y delgados */
+            
+            /* Rectángulos de pedidos expandidos a lo ancho */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
-                padding: 1px 3px !important;
-                margin-bottom: 1px !important;
-                border-radius: 2px !important;
+                padding: 2px 6px !important;
+                margin-bottom: 2px !important;
+                border-radius: 3px !important;
                 background-color: #fdfdfd !important;
                 border: 1px solid #dcdcdc !important;
+                width: 100% !important; /* Fuerza el uso del 100% del carril */
             }
-            /* FUENTE MICRO-COMPACTA: Tamaño mínimo en una sola línea continua */
+            
+            /* Texto en una sola línea continua */
             div[data-testid="stBlock"] div[data-testid="element-container"] p {
-                font-size: 0.68rem !important; /* Letra considerablemente más pequeña */
+                font-size: 0.72rem !important; /* Incrementado sutilmente para mejor lectura aprovechando el ancho */
                 margin: 0 !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                line-height: 18px !important; /* Reduce la altura total de la tarjeta */
+                line-height: 22px !important; 
             }
-            /* Forzar comportamiento alineado en la grilla interna */
+            
+            /* Forzar comportamiento alineado en la grilla interna de las tarjetas */
             div[data-testid="stHorizontalBlock"] {
-                gap: 1px !important;
+                gap: 2px !important;
                 align-items: center !important;
             }
+            
             .titulo-tablero {
-                font-size: 1.15rem !important;
+                font-size: 1.20rem !important;
                 font-weight: bold !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 line-height: 35px !important;
             }
+            
             div[data-testid="stTabs"] {
-                margin-top: -15px !important;
+                margin-top: -10px !important;
             }
             
             /* =======================================================
-               🔥 AJUSTE DE BOTONES MICRO-MINIATURA EN VERDE Y AZUL
+               🔥 SELECCIÓN ABSOLUTA POR POSICIÓN DE COLUMNA DE BOTÓN
                ======================================================= */
-            /* Botón Avanzar (VERDE) - Ultra plano */
+            /* Botón Avanzar (VERDE) */
             div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
                 font-weight: bold !important;
-                font-size: 0.75rem !important;
-                height: 18px !important;
-                min-height: 18px !important;
+                font-size: 0.80rem !important;
+                height: 22px !important;
+                min-height: 22px !important;
                 line-height: 1 !important;
                 padding: 0px !important;
             }
@@ -76,15 +100,15 @@ def mostrar_modulo_tracking():
                 background-color: #218838 !important;
             }
 
-            /* Botón Regresar (AZUL) - Ultra plano */
+            /* Botón Regresar (AZUL) */
             div[data-testid="stHorizontalBlock"] > div:nth-child(3) button {
                 background-color: #007bff !important;
                 color: white !important;
                 border: 1px solid #007bff !important;
                 font-weight: bold !important;
-                font-size: 0.75rem !important;
-                height: 18px !important;
-                min-height: 18px !important;
+                font-size: 0.80rem !important;
+                height: 22px !important;
+                min-height: 22px !important;
                 line-height: 1 !important;
                 padding: 0px !important;
             }
@@ -117,7 +141,7 @@ def mostrar_modulo_tracking():
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
     # --- CABECERA COMPACTA ---
-    c_header1, c_header2 = st.columns([0.4, 0.6])
+    c_header1, c_header2 = st.columns([0.3, 0.7])
     with c_header1:
         st.markdown('<p class="titulo-tablero">📋 Tablero de Pedidos</p>', unsafe_allow_html=True)
     with c_header2:
@@ -145,7 +169,7 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
-        # Fila 1: Títulos de Carriles Alineados de forma estricta
+        # Fila 1: Títulos de Carriles Alineados Estrictamente
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -160,14 +184,14 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
-        # Fila 2: Renderizado de Tarjetas Planas
+        # Fila 2: Renderizado de Tarjetas Planas sobre Columnas Expandidas
         col1, col2, col3, col4 = st.columns(4)
 
         # 1. COLUMNA: EN COCINA
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2 = st.columns([0.78, 0.22])
+                    cx1, cx2 = st.columns([0.82, 0.18])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
@@ -179,13 +203,13 @@ def mostrar_modulo_tracking():
         with col2:
             for p in listos:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
+                    cx1, cx2, cx3 = st.columns([0.76, 0.12, 0.12])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
                         siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": penultimate_status_check if siguiente_estado == "Despachado" else "Entregado"}).update({"estado": siguiente_estado}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
@@ -196,7 +220,7 @@ def mostrar_modulo_tracking():
         with col3:
             for p in despachados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
+                    cx1, cx2, cx3 = st.columns([0.76, 0.12, 0.12])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
@@ -212,7 +236,7 @@ def mostrar_modulo_tracking():
         with col4:
             for p in entregados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
+                    cx1, cx2, cx3 = st.columns([0.76, 0.12, 0.12])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
@@ -238,7 +262,7 @@ def mostrar_modulo_tracking():
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    ch1, ch2 = st.columns([0.85, 0.15])
+                    ch1, ch2 = st.columns([0.90, 0.10])
                     with ch1:
                         st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: S/. {p['monto_total']:.2f}")
                     with ch2:
