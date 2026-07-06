@@ -125,10 +125,10 @@ def mostrar_modulo_tracking():
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
-                        # Si es delivery avanza a despachado, si es salón avanza directo a entregado
-                        siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
+                        # CORREGIDO: Definición limpia del estado y actualización directa sin encadenamientos rotos
+                        siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button("➡️", key=f"fwd_bar_{p['id']}", use_container_width=True, type="primary"):
-                            db.table("pedidos").update({"estado": "siguiente" if siguiente == "Despachado" else "Entregado"}).update({"estado": siguiente}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("⏪", key=f"rev_bar_{p['id']}", use_container_width=True):
