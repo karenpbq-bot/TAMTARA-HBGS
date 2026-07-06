@@ -9,30 +9,11 @@ from carta import mostrar_modulo_carta
 
 # 1. Configuración de página base limpia
 st.set_page_config(
-    page_title="La Exacta - Hamburguesería",
+    page_title="La Exacta",
     layout="centered", 
     initial_sidebar_state="collapsed"
+    page_icon=".streamlit/static/logo.png"
 )
-
-# --- INYECCIÓN HTML FORZADA PARA EL FAVICON (Solución Globo Terráqueo) ---
-# Al subir 'logo.png' a GitHub, Streamlit lo expone localmente. Lo inyectamos directo al navegador:
-ruta_logo_png = os.path.join(os.path.dirname(__file__), "logo.png")
-
-if os.path.exists(ruta_logo_png):
-    # Abrimos el archivo en modo binario para codificarlo de forma segura
-    import base64
-    with open(ruta_logo_png, "rb") as image_file:
-        encoded_string = base64.b64encode(image_file.read()).decode()
-    
-    # Inyectamos el tag HTML en el header del navegador
-    st.markdown(
-        f"""
-        <head>
-            <link rel="icon" type="image/png" href="data:image/png;base64,{encoded_string}">
-        </head>
-        """,
-        unsafe_allow_html=True
-    )
 
 # 2. Ejecutar el gestor de acceso
 autenticado, rol = login_manager()
