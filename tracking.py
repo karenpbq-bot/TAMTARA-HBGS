@@ -3,6 +3,29 @@ import pandas as pd
 from database import conectar
 from datetime import datetime
 
+# --- COMPONENTE VENTANA EMERGENTE PARA DETALLE DE RECLAMOS/AUDITORÍA ---
+@st.dialog("📋 Detalle del Pedido Cerrado")
+def mostrar_ventana_emergente_detalle(pedido):
+    st.markdown(f"### 🪪 Pedido N° {pedido['codigo_exacta']}")
+    st.markdown(f"**Cliente:** {pedido['cliente']} | **Entrega:** {pedido['tipo_entrega']} ({pedido['destino_entrega']})")
+    st.markdown(f"**Monto Cobrado:** S/. {pedido['monto_total']:.2f} | **Forma de Pago:** {pedido['metodo_pago']}")
+    if pedido.get('num_operacion'):
+        st.caption(f"Ref. Operación: {pedido['num_operacion']}")
+    
+    st.divider()
+    st.markdown("**🍟 Productos Consumidos:**")
+    
+    # Desglose del formato JSONB estructurado de Supabase
+    for item in pedido.get('items', []):
+        p_ad_item = sum(float(a['precio']) for a in item.get('adicionales', []))
+        sub_total_item = (item['precio_base'] + p_ad_item) * item['cantidad']
+        
+        st.markdown(f"**{item['cantidad']}x  {item['nombre']}** — *S/. {sub_total_item:.2f}*")
+        if item.get('adicionales'):
+            ads = ", ".join([f"{a['nombre']} (+S/. {a['precio']:.2f})" for a in item['adicionales']])
+            st.markdown(f"   └  _Adicionales: {ads}_")
+    st.divider()
+
 def mostrar_modulo_tracking():
     # --- INYECCIÓN DE STYLES CSS DEFINITIVOS (CABECERA PROTEGIDA Y ALINEACIÓN DE TARJETAS) ---
     st.markdown("""
@@ -55,9 +78,7 @@ def mostrar_modulo_tracking():
                 line-height: 22px !important;
             }
             
-            /* =======================================================
-               🎯 ALINEACIÓN VERTICAL EXCLUSIVA PARA TARJETAS
-               ======================================================= */
+            /* ALINEACIÓN VERTICAL EXCLUSIVA PARA TARJETAS */
             div.stContainer div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
                 align-items: flex-start !important;
@@ -69,17 +90,17 @@ def mostrar_modulo_tracking():
                 align-content: flex-start !important;
             }
             
-            /* Ajustar margen de las pestañas al no haber título */
             div[data-testid="stTabs"] {
                 margin-top: 0px !important;
             }
             
             /* =======================================================
-               🔥 RESTABLECIMIENTO DE COLORES ESPECÍFICOS DE BOTONES
+               🔥 ESTILOS ESPECÍFICOS DE BOTONES
                ======================================================= */
-            /* Botón Avanzar y Archivar (VERDE) */
+            /* Botón Avanzar, Archivar y Ver Emergente (VERDE) */
             div.stButton > button[key*="fwd_"],
-            div.stButton > button[key*="arc_"] {
+            div.stButton > button[key*="arc_"],
+            div.stButton > button[key*="pop_"] {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
@@ -91,12 +112,13 @@ def mostrar_modulo_tracking():
                 padding: 0px !important;
             }
             div.stButton > button[key*="fwd_"]:hover,
-            div.stButton > button[key*="arc_"]:hover {
+            div.stButton > button[key*="arc_"]:hover,
+            div.stButton > button[key*="pop_"]:hover {
                 background-color: #218838 !important;
                 border-color: #218838 !important;
             }
 
-            /* Botón Retroceder (AZUL) */
+            /* Botón Retroceder y Devolver General (AZUL) */
             div.stButton > button[key*="rev_"] {
                 background-color: #007bff !important;
                 color: white !important;
@@ -137,7 +159,7 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- UBICACIÓN DEL FILTRO EN LA BARRA LATERAL (ASEGURA VISIBILIDAD) ---
+    # --- UBICACIÓN DEL FILTRO EN LA BARRA LATERAL ---
     with st.sidebar:
         st.markdown("### 🔍 Buscar Pedido")
         busqueda = st.text_input("", placeholder="Código, cliente o mesa...", label_visibility="collapsed").strip().lower()
@@ -151,7 +173,7 @@ def mostrar_modulo_tracking():
     else:
         pedidos_filtrados = todos_los_pedidos
 
-    # Nombres de pestañas simplificados según requerimiento
+    # Nombres de pestañas requeridos
     tab_proceso, tab_historial = st.tabs(["Pedidos en Proceso", "Pedidos Cerrados"])
 
     # ==========================================
@@ -165,7 +187,6 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
-        # Fila 1: Títulos de Carriles Alineados Estrictamente
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -180,10 +201,8 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
-        # Fila 2: Renderizado de Tarjetas Planas sobre Columnas Expandidas
         col1, col2, col3, col4 = st.columns(4)
 
-        # 1. COLUMNA: EN COCINA
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
@@ -195,7 +214,6 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
-        # 2. COLUMNA: LISTO EN BARRA
         with col2:
             for p in listos:
                 with st.container(border=True):
@@ -212,7 +230,6 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
 
-        # 3. COLUMNA: EN CAMINO
         with col3:
             for p in despachados:
                 with st.container(border=True):
@@ -228,7 +245,6 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
-        # 4. COLUMNA: ENTREGADO
         with col4:
             for p in entregados:
                 with st.container(border=True):
@@ -246,7 +262,7 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # PESTAÑA 2: PEDIDOS CERRADOS
+    # PESTAÑA 2: PEDIDOS CERRADOS (REDISEÑADA)
     # ==========================================
     with tab_historial:
         st.subheader("📋 Historial de Órdenes Archivadas")
@@ -258,10 +274,16 @@ def mostrar_modulo_tracking():
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    ch1, ch2 = st.columns([0.90, 0.10])
+                    # Sub-grilla ejecutiva de 3 columnas para la línea del historial
+                    ch1, ch2, ch3 = st.columns([0.76, 0.12, 0.12])
                     with ch1:
-                        st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: S/. {p['monto_total']:.2f}")
+                        st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: **S/. {p['monto_total']:.2f}**")
                     with ch2:
+                        # Botón Verde de Visualización Emergente para auditoría de reclamos
+                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True, help="Ver desglose de productos"):
+                            mostrar_ventana_emergente_detalle(p)
+                    with ch3:
+                        # Botón Azul de Retorno para moverlo de vuelta al tablero activo
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True, help="Regresar al Tablero"):
                             st.session_state[f"archivado_{p['id']}"] = False
                             st.rerun()
