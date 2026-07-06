@@ -4,23 +4,25 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE STYLES CSS ULTRA-COMPACTOS PARA MÁXIMA DENSIDAD ---
+    # --- INYECCIÓN DE ESTILOS CSS DEFINITIVOS (CABECERAS ALINEADAS Y COLORES) ---
     st.markdown("""
         <style>
-            /* Reducir y estilizar el título principal para que no ocupe espacio */
-            .titulo-tablero {
-                font-size: 1.25rem !important;
+            /* Alineación estricta y tamaño para los títulos de carriles */
+            .titulo-carril {
+                font-size: 0.90rem !important;
                 font-weight: bold !important;
                 margin: 0 !important;
-                padding: 0 !important;
-                line-height: 40px !important; /* Alineado verticalmente con el buscador */
-            }
-            /* Reducir títulos de los carriles */
-            .stHeading h3 {
-                font-size: 0.90rem !important;
-                margin: 0 !important;
-                padding: 1px 0 !important;
+                padding: 5px 0 !important;
                 text-align: center;
+                background-color: #f1f3f5 !important;
+                border-radius: 4px !important;
+                border: 1px solid #e9ecef !important;
+            }
+            /* Línea divisoria horizontal limpia */
+            .linea-division {
+                border-top: 2px solid #343a40 !important;
+                margin-top: 4px !important;
+                margin-bottom: 8px !important;
             }
             /* Hacer los rectángulos de cada pedido sumamente planos */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
@@ -39,54 +41,56 @@ def mostrar_modulo_tracking():
                 text-overflow: ellipsis !important;
                 line-height: 22px !important;
             }
-            /* Forzar comportamiento en línea de la grilla interna */
+            /* Forzar comportamiento en línea de la grilla interna de las tarjetas */
             div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
                 align-items: center !important;
             }
+            .titulo-tablero {
+                font-size: 1.25rem !important;
+                font-weight: bold !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                line-height: 40px !important;
+            }
+            div[data-testid="stTabs"] {
+                margin-top: -10px !important;
+            }
             
-            /* --- REGLAS ESTRICTAS PARA COLORES DE BOTONES --- */
-            /* Botón Avanzar (">") - FORZADO EN VERDE */
-            div.stButton > button:not([disabled]) p:contains(">"), 
-            div.stButton > button[key*="fwd_"], 
-            div.stButton > button[key*="arc_"] {
+            /* =======================================================
+               🔥 SELECCIÓN ABSOLUTA POR POSICIÓN DE COLUMNA DE BOTÓN
+               ======================================================= */
+            /* COLUMNA DE DOS ELEMENTOS (En Cocina): El 2do es Avanzar (VERDE) */
+            div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
                 font-weight: bold !important;
-                font-size: 0.85rem !important;
+                font-size: 0.90rem !important;
                 height: 22px !important;
                 min-height: 22px !important;
                 line-height: 1 !important;
                 padding: 0px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
             }
-            
-            /* Botón Regresar ("<") - FORZADO EN AZUL */
-            div.stButton > button:not([disabled]) p:contains("<"), 
-            div.stButton > button[key*="rev_"] {
+            div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover {
+                background-color: #218838 !important;
+            }
+
+            /* COLUMNA DE TRES ELEMENTOS (Listo / En Camino / Entregado): 
+               El 2do es Avanzar (VERDE) y el 3ro es Regresar (AZUL) */
+            div[data-testid="stHorizontalBlock"] > div:nth-child(3) button {
                 background-color: #007bff !important;
                 color: white !important;
                 border: 1px solid #007bff !important;
                 font-weight: bold !important;
-                font-size: 0.85rem !important;
+                font-size: 0.90rem !important;
                 height: 22px !important;
                 min-height: 22px !important;
                 line-height: 1 !important;
                 padding: 0px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
             }
-            div.stButton > button:hover {
-                opacity: 0.9 !important;
-                color: white !important;
-            }
-            /* Reducir el margen superior de las pestañas */
-            div[data-testid="stTabs"] {
-                margin-top: -10px !important;
+            div[data-testid="stHorizontalBlock"] > div:nth-child(3) button:hover {
+                background-color: #0069d9 !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -113,7 +117,7 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- CABECERA COMPACTA: TÍTULO Y BUSCADOR EN UNA SOLA LÍNEA ---
+    # --- CABECERA COMPACTA ---
     c_header1, c_header2 = st.columns([0.4, 0.6])
     with c_header1:
         st.markdown('<p class="titulo-tablero">📋 Tablero de Pedidos</p>', unsafe_allow_html=True)
@@ -142,12 +146,26 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
+        # Fila 1: Títulos de Carriles (Garantiza alineación horizontal perfecta)
+        t_col1, t_col2, t_col3, t_col4 = st.columns(4)
+        with t_col1:
+            st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+        with t_col2:
+            st.markdown('<p class="titulo-carril">🛎️ Listo en Barra</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+        with t_col3:
+            st.markdown('<p class="titulo-carril">🛵 En Camino</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+        with t_col4:
+            st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
+            st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
+
+        # Fila 2: Flujo de las tarjetas de pedidos
         col1, col2, col3, col4 = st.columns(4)
 
         # 1. COLUMNA: EN COCINA
         with col1:
-            st.subheader("👨‍🍳 En Cocina")
-            st.divider()
             for p in en_cocina:
                 with st.container(border=True):
                     cx1, cx2 = st.columns([0.75, 0.25])
@@ -160,8 +178,6 @@ def mostrar_modulo_tracking():
 
         # 2. COLUMNA: LISTO EN BARRA
         with col2:
-            st.subheader("🛎️ Listo en Barra")
-            st.divider()
             for p in listos:
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
@@ -179,8 +195,6 @@ def mostrar_modulo_tracking():
 
         # 3. COLUMNA: EN CAMINO
         with col3:
-            st.subheader("🛵 En Camino")
-            st.divider()
             for p in despachados:
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
@@ -197,8 +211,6 @@ def mostrar_modulo_tracking():
 
         # 4. COLUMNA: ENTREGADO
         with col4:
-            st.subheader("🏁 Entregado")
-            st.divider()
             for p in entregados:
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
