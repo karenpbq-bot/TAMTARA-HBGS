@@ -4,7 +4,7 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE STYLES CSS DEFINITIVOS (ALINEACIÓN SUPERIOR ABSOLUTA) ---
+    # --- INYECCIÓN DE STYLES CSS CORREGIDOS (CABECERA PROTEGIDA Y ALINEACIÓN DE TARJETAS) ---
     st.markdown("""
         <style>
             /* Eliminar márgenes internos de Streamlit para aprovechar toda la pantalla */
@@ -56,27 +56,29 @@ def mostrar_modulo_tracking():
             }
             
             /* =======================================================
-               🎯 CORRECCIÓN DE ALINEACIÓN VERTICAL (TOP-ALIGNED)
+               🎯 ALINEACIÓN VERTICAL EXCLUSIVA PARA TARJETAS
                ======================================================= */
-            /* Forzar que las subcolumnas dentro de cada tarjeta se alineen arriba */
-            div[data-testid="stContainer"] div[data-testid="stHorizontalBlock"] {
+            /* Se añade el prefijo '.stContainer' para asegurar que SOLO afecte 
+               a las columnas que están dentro de las tarjetas de pedidos */
+            div.stContainer div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
-                align-items: flex-start !important; /* Cambiado de center/baseline a flex-start */
+                align-items: flex-start !important;
             }
             
-            /* Asegurar que los contenedores hijos de la columna sigan la alineación superior */
-            div[data-testid="stContainer"] div[data-testid="stHorizontalBlock"] > div {
+            div.stContainer div[data-testid="stHorizontalBlock"] > div {
                 display: flex !important;
                 align-items: flex-start !important;
                 align-content: flex-start !important;
             }
             
+            /* Estilo del título del tablero */
             .titulo-tablero {
                 font-size: 1.20rem !important;
                 font-weight: bold !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 line-height: 35px !important;
+                color: #31333F !important;
             }
             
             div[data-testid="stTabs"] {
@@ -84,11 +86,11 @@ def mostrar_modulo_tracking():
             }
             
             /* =======================================================
-               🔥 CORRECCIÓN DE COLORES DE BOTONES
+               🔥 RESTABLECIMIENTO DE COLORES ESPECÍFICOS DE BOTONES
                ======================================================= */
-            /* CUALQUIER BOTÓN QUE CONTENGA ANVANCE O ARCHIVADO SE PINTA EN VERDE */
-            div[data-testid="stHorizontalBlock"] button[key*="fwd_"],
-            div[data-testid="stHorizontalBlock"] button[key*="arc_"] {
+            /* Botón Avanzar y Archivar (VERDE) */
+            div.stButton > button[key*="fwd_"],
+            div.stButton > button[key*="arc_"] {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
@@ -99,13 +101,14 @@ def mostrar_modulo_tracking():
                 line-height: 1 !important;
                 padding: 0px !important;
             }
-            div[data-testid="stHorizontalBlock"] button[key*="fwd_"]:hover,
-            div[data-testid="stHorizontalBlock"] button[key*="arc_"]:hover {
+            div.stButton > button[key*="fwd_"]:hover,
+            div.stButton > button[key*="arc_"]:hover {
                 background-color: #218838 !important;
+                border-color: #218838 !important;
             }
 
-            /* CUALQUIER BOTÓN QUE CONTENGA RETROCEDER SE PINTA EN AZUL */
-            div[data-testid="stHorizontalBlock"] button[key*="rev_"] {
+            /* Botón Retroceder (AZUL) */
+            div.stButton > button[key*="rev_"] {
                 background-color: #007bff !important;
                 color: white !important;
                 border: 1px solid #007bff !important;
@@ -116,8 +119,9 @@ def mostrar_modulo_tracking():
                 line-height: 1 !important;
                 padding: 0px !important;
             }
-            div[data-testid="stHorizontalBlock"] button[key*="rev_"]:hover {
+            div.stButton > button[key*="rev_"]:hover {
                 background-color: #0069d9 !important;
+                border-color: #0069d9 !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -144,7 +148,7 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- CABECERA COMPACTA ---
+    # --- CABECERA COMPACTA PROTEGIDA ---
     c_header1, c_header2 = st.columns([0.3, 0.7])
     with c_header1:
         st.markdown('<p class="titulo-tablero">📋 Tablero de Pedidos</p>', unsafe_allow_html=True)
@@ -213,7 +217,7 @@ def mostrar_modulo_tracking():
                     with cx2:
                         siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"estado": Harris_estado}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
