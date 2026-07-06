@@ -10,9 +10,6 @@ def login_manager():
         # --- CARGA DEL LOGO CORPORATIVO DE LA EXACTA ---
         directorio_actual = os.path.dirname(__file__)
         ruta_logo_exacta = os.path.join(directorio_actual, ".streamlit", "static", "logo.png")
-        
-        # Cambiamos 'use_container_width=True' por un 'width' fijo y pequeño
-        st.image(ruta_logo, width=150)
 
         if os.path.exists(ruta_logo_exacta):
             st.image(ruta_logo_exacta, use_container_width=True)
