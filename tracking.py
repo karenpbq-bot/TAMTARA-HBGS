@@ -26,10 +26,10 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE ESTILOS CSS CON MÁXIMA PRIORIDAD Estructural ---
+    # --- INYECCIÓN DE ESTILOS CSS REVISADA Y BLINDADA ---
     st.markdown("""
         <style>
-            /* 1. Uso del 100% de la pantalla */
+            /* 1. Configuración del contenedor general en modo ancho */
             div.block-container {
                 padding-top: 55px !important; 
                 padding-bottom: 1rem !important;
@@ -38,12 +38,12 @@ def mostrar_modulo_tracking():
                 max-width: 100% !important;
             }
 
-            /* 2. Cabeceras fijas de los 4 carriles */
+            /* 2. Cabeceras de los 4 carriles Kanban */
             .titulo-carril {
-                font-size: 0.82rem !important;
+                font-size: 0.85rem !important;
                 font-weight: bold !important;
                 margin: 0 !important;
-                padding: 5px 0 !important;
+                padding: 6px 0 !important;
                 text-align: center;
                 background-color: #f1f3f5 !important;
                 border-radius: 4px !important;
@@ -57,89 +57,80 @@ def mostrar_modulo_tracking():
                 margin-bottom: 6px !important;
             }
 
-            /* 3. Rectángulos de los pedidos planos */
+            /* 3. Rectángulos de los pedidos planos con tipografía micro */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
-                padding: 1px 4px !important;
-                margin-bottom: 2px !important;
+                padding: 3px 6px !important;
+                margin-bottom: 3px !important;
                 border-radius: 4px !important;
                 background-color: #fdfdfd !important;
                 border: 1px solid #cccccc !important;
                 width: 100% !important;
             }
 
-            /* Letras micro-compactas sin saltos */
+            /* Letras micro-compactas dentro del recuadro */
             div[data-testid="stBlock"] div[data-testid="element-container"] p {
-                font-size: 0.72rem !important;
+                font-size: 0.75rem !important;
                 margin: 0 !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                line-height: 22px !important;
+                line-height: 24px !important;
                 color: #222222 !important;
             }
 
-            /* 4. Alineación superior absoluta */
+            /* 4. ALINEACIÓN CORREGIDA (Estilo base original sin forzar el techo vertical) */
             div.stContainer div[data-testid="stHorizontalBlock"] {
-                gap: 2px !important;
-                align-items: flex-start !important;
-            }
-
-            div.stContainer div[data-testid="stHorizontalBlock"] > div {
-                display: flex !important;
-                align-items: flex-start !important;
-                align-content: flex-start !important;
+                gap: 4px !important;
+                align-items: baseline !important;
             }
 
             /* =======================================================
-               🎨 SELECCIÓN ATÓMICA DE COLORES (NIVEL INYECTOR RAÍZ)
+               🎨 INYECCIÓN TOTAL DE COLOR A BOTONES NATIVOS
                ======================================================= */
-            /* Forzar Botón Avanzar, Archivar y Ver Detalle (VERDE SÓLIDO) */
-            button[data-testid*="Button"][key*="fwd_"],
-            button[data-testid*="Button"][key*="arc_"],
-            button[data-testid*="Button"][key*="pop_"] {
+            
+            /* ---- BOTONES DE AVANCE, ARCHIVADO Y DETALLE (VERDE) ---- */
+            div.stButton > button[key*="fwd_"], 
+            div.stButton > button[key*="arc_"], 
+            div.stButton > button[key*="pop_"] {
                 background-color: #28a745 !important;
-                color: white !important;
                 border: 1px solid #28a745 !important;
-                font-weight: bold !important;
-                font-size: 0.85rem !important;
-                height: 22px !important;
-                min-height: 22px !important;
-                line-height: 1 !important;
-                padding: 0px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                border-radius: 4px !important;
+                height: 24px !important;
+                padding: 0px 8px !important;
+                min-height: 24px !important;
             }
             
-            button[data-testid*="Button"][key*="fwd_"] p,
-            button[data-testid*="Button"][key*="arc_"] p,
-            button[data-testid*="Button"][key*="pop_"] p {
-                color: white !important;
+            /* Forzar texto interno en blanco y negrita para botones verdes */
+            div.stButton > button[key*="fwd_"] p,
+            div.stButton > button[key*="arc_"] p,
+            div.stButton > button[key*="pop_"] p {
+                color: #ffffff !important;
                 font-size: 0.85rem !important;
                 font-weight: bold !important;
+                line-height: 24px !important;
             }
 
-            /* Forzar Botón Retroceder y Volver (AZUL SÓLIDO) */
-            button[data-testid*="Button"][key*="rev_"] {
+            /* ---- BOTONES DE RETROCESO (AZUL) ---- */
+            div.stButton > button[key*="rev_"] {
                 background-color: #007bff !important;
-                color: white !important;
                 border: 1px solid #007bff !important;
-                font-weight: bold !important;
-                font-size: 0.85rem !important;
-                height: 22px !important;
-                min-height: 22px !important;
-                line-height: 1 !important;
-                padding: 0px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                border-radius: 4px !important;
+                height: 24px !important;
+                padding: 0px 8px !important;
+                min-height: 24px !important;
             }
             
-            button[data-testid*="Button"][key*="rev_"] p {
-                color: white !important;
+            /* Forzar texto interno en blanco y negrita para botones azules */
+            div.stButton > button[key*="rev_"] p {
+                color: #ffffff !important;
                 font-size: 0.85rem !important;
                 font-weight: bold !important;
+                line-height: 24px !important;
             }
+
+            /* Ajuste de hovers para mantener consistencia visual */
+            div.stButton > button[key*="fwd_"]:hover { background-color: #218838 !important; }
+            div.stButton > button[key*="rev_"]:hover { background-color: #0069d9 !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -165,7 +156,7 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # --- CABECERA INTEGRADA TOTALMENTE ACCESIBLE ---
+    # --- CABECERA INTEGRADA ---
     c_nav1, c_nav2 = st.columns([0.4, 0.6])
     
     with c_nav1:
@@ -203,7 +194,6 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
-        # Fila 1: Títulos de Carriles Alineados Estrictamente
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -218,7 +208,6 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
-        # Fila 2: Flujo de Tarjetas
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
