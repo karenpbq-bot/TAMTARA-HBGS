@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from database import conectar
 
-def mostrar_modulo_traking():
+def mostrar_modulo_tracking():
     st.header("📋 Tracking de Pedidos - La Exacta")
     db = conectar()
     
