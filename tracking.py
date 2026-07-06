@@ -4,43 +4,64 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- INYECCIÓN DE STYLES PARA MÁXIMA DENSIDAD VERTICAL (DISEÑO PLANO) ---
+    # --- INYECCIÓN DE STYLES CSS ULTRA-COMPACTOS PARA ALINEACIÓN HORIZONTAL ---
     st.markdown("""
         <style>
+            /* Reducir títulos de los carriles */
             .stHeading h3 {
-                font-size: 0.95rem !important;
+                font-size: 0.90rem !important;
                 margin: 0 !important;
-                padding: 2px 0 !important;
+                padding: 1px 0 !important;
                 text-align: center;
             }
+            /* Hacer los rectángulos de cada pedido sumamente planos */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
                 padding: 2px 4px !important;
                 margin-bottom: 2px !important;
                 border-radius: 3px !important;
-                background-color: #fcfcfc !important;
-                border: 1px solid #e0e0e0 !important;
+                background-color: #fdfdfd !important;
+                border: 1px solid #dbdbdb !important;
             }
+            /* Texto micro en una sola línea continua sin saltos */
             div[data-testid="stBlock"] div[data-testid="element-container"] p {
-                font-size: 0.78rem !important;
+                font-size: 0.75rem !important;
                 margin: 0 !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
+                line-height: 22px !important; /* Centrado vertical con los botones */
             }
-            div[data-testid="stBlock"] button {
-                padding: 1px 2px !important;
-                font-size: 0.72rem !important;
-                min-height: 20px !important;
+            /* Forzar comportamiento en línea de la grilla interna */
+            div[data-testid="stHorizontalBlock"] {
+                gap: 2px !important;
+                align-items: center !important;
+            }
+            /* Estilos específicos para el botón Avanzar (Verde) */
+            div.stButton > button[key^="fwd_"], div.stButton > button[key^="arc_"] {
+                background-color: #28a745 !important;
+                color: white !important;
+                border: none !important;
+                font-weight: bold !important;
+                padding: 0px !important;
+                font-size: 0.75rem !important;
                 height: 22px !important;
-                line-height: 1 !important;
+                min-height: 22px !important;
             }
-            [data-testid="stHorizontalBlock"] {
-                gap: 4px !important;
+            /* Estilos específicos para el botón Regresar (Azul) */
+            div.stButton > button[key^="rev_"] {
+                background-color: #007bff !important;
+                color: white !important;
+                border: none !important;
+                font-weight: bold !important;
+                padding: 0px !important;
+                font-size: 0.75rem !important;
+                height: 22px !important;
+                min-height: 22px !important;
             }
         </style>
     """, unsafe_allow_html=True)
 
-    st.header("📋 Tablero de Control de Production - La Exacta")
+    st.header("📋 Tablero de Control de Producción - La Exacta")
     db = conectar()
     
     try:
@@ -96,30 +117,31 @@ def mostrar_modulo_tracking():
             st.divider()
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2 = st.columns([0.80, 0.20])
+                    # Distribución horizontal optimizada en una sola línea
+                    cx1, cx2 = st.columns([0.75, 0.25])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
-                        if st.button("➡️", key=f"fwd_coc_{p['id']}", use_container_width=True, type="primary"):
+                        if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
-        # 2. COLUMNA: LISTO EN BARRA (CORREGIDA)
+        # 2. COLUMNA: LISTO EN BARRA
         with col2:
             st.subheader("🛎️ Listo en Barra")
             st.divider()
             for p in listos:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.64, 0.18, 0.18])
+                    cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
                         siguiente_estado = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
-                        if st.button("➡️", key=f"fwd_bar_{p['id']}", use_container_width=True, type="primary"):
-                            db.table("pedidos").update({"estado": siguiente_estado}).eq("id", p['id']).execute()
+                        if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": penultimate_status_check if siguiente_estado == "Despachado" else "Entregado"}).update({"estado": siguiente_estado}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("⏪", key=f"rev_bar_{p['id']}", use_container_width=True):
+                        if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -129,15 +151,15 @@ def mostrar_modulo_tracking():
             st.divider()
             for p in despachados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.64, 0.18, 0.18])
+                    cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
-                        if st.button("➡️", key=f"fwd_cam_{p['id']}", use_container_width=True, type="primary"):
+                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("⏪", key=f"rev_cam_{p['id']}", use_container_width=True):
+                        if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -147,15 +169,16 @@ def mostrar_modulo_tracking():
             st.divider()
             for p in entregados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.64, 0.18, 0.18])
+                    cx1, cx2, cx3 = st.columns([0.66, 0.17, 0.17])
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
-                        if st.button("🗄️", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar permanentemente"):
+                        # Reemplazamos el icono por texto plano con estilo verde de avanzar
+                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar permanentemente"):
                             st.session_state[f"archivado_{p['id']}"] = True
                             st.rerun()
                     with cx3:
-                        if st.button("⏪", key=f"rev_ent_{p['id']}", use_container_width=True):
+                        if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
                             anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
@@ -177,6 +200,6 @@ def mostrar_modulo_tracking():
                     with ch1:
                         st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: S/. {p['monto_total']:.2f}")
                     with ch2:
-                        if st.button("Reactivar", key=f"react_hist_{p['id']}", use_container_width=True):
+                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True, help="Regresar al Tablero"):
                             st.session_state[f"archivado_{p['id']}"] = False
                             st.rerun()
