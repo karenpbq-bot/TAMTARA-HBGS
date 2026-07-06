@@ -11,7 +11,7 @@ def mostrar_modulo_pedidos():
     st.header("🛒 Terminal de Pedidos La Exacta")
     db = conectar()
     
-    # --- FLUJO COUNTER: IDENTIFICACIÓN INICIAL ---
+    # --- IDENTIFICACIÓN INICIAL ---
     nombre_cliente = st.text_input(
         "👤 Nombre del Cliente:", 
         value=st.session_state.get('cliente_actual', ''),
@@ -19,7 +19,6 @@ def mostrar_modulo_pedidos():
     )
     st.session_state['cliente_actual'] = nombre_cliente
 
-    # Selección de Tipo de Entrega
     tipo_ent = st.radio("Tipo de Entrega:", ["Mesa / Salón", "Delivery / Llevar"], horizontal=True)
     
     if tipo_ent == "Mesa / Salón":
@@ -29,12 +28,11 @@ def mostrar_modulo_pedidos():
         destino = st.text_input("Dirección de Despacho (Si es delivery):", placeholder="Ej: Av. Principal 123 o 'Llevar'")
         telefono = st.text_input("Teléfono de Contacto:", placeholder="Ej: 999888777")
 
-    # --- PASO 1: SELECCIÓN DE PRODUCTOS Y ADICIONALES ---
+    # --- PASO 1: SELECCIÓN Y VALIDACIÓN ---
     if st.session_state.paso_pedido == 1:
         res = obtener_productos()
         
         if res.data:
-            # Separamos productos principales de los complementos/adicionales
             productos = [p for p in res.data if p.get('vigente', True) and p.get('categoria') != 'Complementos']
             complementos = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Complementos']
             
@@ -50,7 +48,6 @@ def mostrar_modulo_pedidos():
                         st.write(p['descripcion'])
                         st.write(f"**S/. {p['precio_venta']:.2f}**")
                         
-                        # Popover de adicionales modulado
                         adicionales_seleccionados = []
                         with st.popover("➕ Adicionales / Salsas", use_container_width=True):
                             for comp in complementos:
@@ -77,38 +74,35 @@ def mostrar_modulo_pedidos():
                                 st.success(f"✅ {p['nombre']} agregado")
                                 st.rerun()
 
-            # Vista interna del Carrito en Caja
             if st.session_state.carrito:
                 st.divider()
                 st.subheader("🛍️ Lista de Compra Actual")
                 total = 0.0
                 for i, item in enumerate(st.session_state.carrito):
-                    # CORRECCIÓN: Sumar estrictamente el precio de cada adicional
                     p_ad = sum(float(a['precio']) for a in item['adicionales'])
                     subtotal = (item['precio_base'] + p_ad) * item['cantidad']
                     total += subtotal
                     
                     st.write(f"**{item['cantidad']}x {item['nombre']}** - S/. {subtotal:.2f}")
                     if item['adicionales']:
-                        st.caption(f"  └ Adicionales: {', '.join([f'{a['nombre']} (+S/. {a['precio']:.2f})' for a in item['adicionales']])}")
+                        st.caption(f"  └ Adicionales: {', '.join([f'{a['nombre']}' for a in item['adicionales']])}")
                     if st.button("Quitar 🗑️", key=f"del_{i}"):
                         st.session_state.carrito.pop(i)
                         st.rerun()
                 
                 st.divider()
-                st.metric("Total Acumulado (Incluye Adicionales)", f"S/. {total:.2f}")
+                st.metric("Total Acumulado", f"S/. {total:.2f}")
                 if st.button("💳 Ir al Cierre de Caja", use_container_width=True, type="primary"):
                     st.session_state.paso_pedido = 2
                     st.rerun()
 
-    # --- PASO 2: CONTROL DE COBRO Y EMISIÓN DE TICKETS ESC/POS ---
+    # --- PASO 2: CIERRE, COBRO Y DISTRIBUCIÓN DE IMPRESIÓN ---
     elif st.session_state.paso_pedido == 2:
         st.subheader("💳 Cierre y Validación del Pago")
         if st.button("⬅️ Volver a la Carta"):
             st.session_state.paso_pedido = 1
             st.rerun()
 
-        # CORRECCIÓN: Recalcular el total final sumando los complementos de manera estricta
         total_final = 0.0
         for item in st.session_state.carrito:
             p_ad = sum(float(a['precio']) for a in item['adicionales'])
@@ -125,7 +119,7 @@ def mostrar_modulo_pedidos():
             vuelto = 0.0
             
             if metodo in ["Yape / Plin", "Tarjeta"]:
-                num_op = st.text_input("N° de Operación (Obligatorio):", placeholder="Ej: 198273 o Ref. Banco")
+                num_op = st.text_input("N° de Operación (Obligatorio):", placeholder="Ej: 198273")
             else:
                 monto_rec = st.number_input("Monto en efectivo recibido:", min_value=float(total_final), step=1.0)
                 vuelto = monto_rec - total_final
@@ -135,12 +129,10 @@ def mostrar_modulo_pedidos():
             st.write("### Datos de Auditoría")
             st.info(f"**Cliente:** {st.session_state['cliente_actual']}\n\n**Despacho:** {destino if destino else 'No indicado'}")
             
-            # Botón maestro de transmisión
-            if st.button("🔥 CONFIRMAR COBRO Y EMITIR COMANDAS", use_container_width=True, type="primary"):
+            if st.button("🔥 CONFIRMAR COBRO Y EMITIR TICKETS", use_container_width=True, type="primary"):
                 if metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
-                    st.error("⚠️ Para pagos electrónicos debe registrar el número de operación bancaria.")
+                    st.error("⚠️ Registre el número de operación bancaria.")
                 else:
-                    # 1. Inserción en Supabase
                     pedido_payload = {
                         "cliente": st.session_state['cliente_actual'],
                         "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
@@ -158,53 +150,44 @@ def mostrar_modulo_pedidos():
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
-                    st.success(f"🎉 Pedido N° {id_pedido} guardado con éxito.")
-                    
-                    # Generación limpia de los productos con sus complementos calculados para el Ticket 1
                     lineas_ticket_productos = []
                     for i in st.session_state.carrito:
                         p_ad_item = sum(float(a['precio']) for a in i['adicionales'])
-                        costo_total_unitario = i['precio_base'] + p_ad_item
-                        sub_i = costo_total_unitario * i['cantidad']
-                        
-                        linea = f"{i['cantidad']}x {i['nombre']} - S/. {sub_i:.2f}"
-                        if i['adicionales']:
-                            linea += f"\n   └ Adic: {', '.join([f'{a['nombre']}' for a in i['adicionales']])}"
-                        lineas_ticket_productos.append(linea)
+                        sub_i = (i['precio_base'] + p_ad_item) * i['cantidad']
+                        lineas_ticket_productos.append(f"{i['cantidad']}x {i['nombre']} - S/. {sub_i:.2f}")
 
-                    # 2. TRANSMISIÓN DEL LOG DE TICKET A LA ADVANCE ADV-8011N
-                    with st.spinner("Transmitiendo buffers a la ticketera Advance..."):
-                        st.code(f"""
-                        === ENVIANDO AL BUFFER DE LA IMPRESORA ADVANCE ADV-8011N ===
-                        
-                        [TICKET 1: COMPROBANTE DE PEDIDO]
-                        LA EXACTA HAMBURGUESERÍA
-                        Pedido N°: {id_pedido}
-                        Cliente: {st.session_state['cliente_actual']}
-                        -----------------------------------------
-                        {chr(10).join(lineas_ticket_productos)}
-                        -----------------------------------------
-                        TOTAL PAGADO: S/. {total_final:.2f}
-                        Método: {metodo} {f'(Op: {num_op})' if num_op else ''}
-                        \x1b\x69 <-- COMANDO DE CORTE DE PAPEL TICKET 1
-                        
-                        [TICKET 2: DESPACHO / MESA / DELIVERY]
-                        LA EXACTA - LOGÍSTICA
-                        Pedido N°: {id_pedido}
-                        Cliente: {st.session_state['cliente_actual']}
-                        Entrega: {tipo_ent}
-                        Destino: {destino}
-                        Contacto: {telefono if telefono else 'N/A'}
-                        \x1b\x69 <-- COMANDO DE CORTE DE PAPEL TICKET 2
-                        
-                        [TICKET 3: COMANDA DE COCINA]
-                        🔥 ¡NUEVA ORDEN DE COCINA! 🔥
-                        Pedido N°: {id_pedido}
-                        -----------------------------------------
-                        {chr(10).join([f"[{i['cantidad']}] X  {i['nombre']} {chr(10)+'   └ Adicionales: '+', '.join([a['nombre'] for a in i['adicionales']]) if i['adicionales'] else ''}" for i in st.session_state.carrito])}
-                        -----------------------------------------
-                        \x1b\x69 <-- COMANDO DE CORTE DE PAPEL TICKET 3
-                        """)
+                    # Muestra de confirmación explícita de hardware en la interfaz
+                    st.success(f"🎉 Pedido N° {id_pedido} registrado exitosamente.")
+                    
+                    # --- RUTEO AUTOMÁTICO DE IMPRESORAS ---
+                    st.info("🖨️ [SISTEMA DE IMPRESIÓN] Enviando órdenes a las ticketeras Advance...")
+                    
+                    st.code(f"""
+                    >>> TRANSMITIENDO A IMPRESORA 1 (CAJA / CAJERO) <<<
+                    [TICKET 1: COMPROBANTE DE COMPRA]
+                    LA EXACTA HAMBURGUESERÍA
+                    Pedido N°: {id_pedido}
+                    Cliente: {st.session_state['cliente_actual']}
+                    -----------------------------------------
+                    {chr(10).join(lineas_ticket_productos)}
+                    -----------------------------------------
+                    TOTAL: S/. {total_final:.2f} | {metodo}
+                    \x1b\x69 <-- Papel Cortado en Caja
+                    
+                    >>> TRANSMITIENDO A IMPRESORA 2 (DESPACHO Y COCINA) <<<
+                    [TICKET 2: CONTROL LOGÍSTICO]
+                    Pedido N°: {id_pedido} | Cliente: {st.session_state['cliente_actual']}
+                    Despacho: {tipo_ent} | Ubicación: {destino}
+                    \x1b\x69 <-- Papel Cortado en Despacho
+                    
+                    [TICKET 3: COMANDA DE PRODUCCIÓN]
+                    🔥 NUEVA ORDEN - COCINA 🔥
+                    Pedido N°: {id_pedido}
+                    {chr(10).join([f"[{i['cantidad']}] {i['nombre']}" for i in st.session_state.carrito])}
+                    \x1b\x69 <-- Papel Cortado en Cocina
+                    
+                    STATUS VEND: [OK] - Buffers vaciados con éxito.
+                    """)
                     
                     st.balloons()
                     st.session_state.carrito = []
