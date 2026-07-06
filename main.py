@@ -9,7 +9,7 @@ from carta import mostrar_modulo_carta
 
 # 1. CONFIGURACIÓN DE PÁGINA NATIVA (Logo en la pestaña del navegador)
 st.set_page_config(
-    page_title="La Exacta - Hamburguesería",
+    page_title="La Exacta",
     layout="centered",
     initial_sidebar_state="collapsed",
     page_icon=".streamlit/static/logo.png"
