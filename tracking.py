@@ -202,59 +202,51 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
+    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL (MICRO-COMPACTO)
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        st.markdown("### 🗄️ Historial de Órdenes Archivadas")
-        
         # Obtener los pedidos que están en estado 'Entregado' y marcados como archivados en la sesión
         archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
         
-        # --- SISTEMA DE ALERTA DE CAPACIDAD DE BASE DE DATOS ---
+        # --- SISTEMA DE ALERTA Y PURGA EN UNA SOLA FILA ULTRA-COMPACTA ---
         total_registros_sistema = len(todos_los_pedidos)
-        limite_preventivo = 10000  # Alerta a los 10k registros para mantener la velocidad óptima
+        limite_preventivo = 10000
         
-        c_info1, c_info2 = st.columns([0.5, 0.5])
-        with c_info1:
-            st.metric("Pedidos Totales en BD", f"{total_registros_sistema} / {limite_preventivo}")
+        # Grilla de 3 columnas para meter todo el control en un solo renglón
+        c_inf1, c_inf2, c_inf3 = st.columns([0.25, 0.45, 0.30])
         
-        with c_info2:
+        with c_inf1:
+            st.markdown(f"**BD:** {total_registros_sistema} / {limite_preventivo} ped.")
+        
+        with c_inf2:
             if total_registros_sistema >= limite_preventivo:
-                st.warning("⚠️ ALERTA: La base de datos está acumulando demasiados registros. Se recomienda vaciar el historial para evitar lentitud.")
+                st.markdown("⚠️ :orange[**Base de datos casi llena. Purgar.**]")
             else:
-                st.success("🟢 Almacenamiento optimizado. Espacio en base de datos al 100% disponible.")
+                st.markdown("🟢 :green[**Almacenamiento óptimo.**]")
         
-        st.divider()
-        
-        # --- BOTÓN DE BORRADO PERMANENTE ---
-        if not archivados_del_turno:
-            st.info("No se registran pedidos archivados en esta sesión.")
-        else:
-            # Botón de peligro para purgar la base de datos
-            if st.button("🗑️ Vaciar Historial Permanentemente", use_container_width=True, type="secondary", help="Borra definitivamente estos registros de Supabase"):
-                ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
-                
-                try:
-                    with st.spinner("Purgando registros de Supabase..."):
-                        # Borrar físicamente de la tabla pedidos en la base de datos
+        with c_inf3:
+            if archivados_del_turno:
+                if st.button("🗑️ Vaciar Historial", use_container_width=True, key="btn_purgar_micro", help="Borra definitivamente estos registros de Supabase"):
+                    ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
+                    try:
                         db.table("pedidos").delete().in_("id", ids_a_borrar).execute()
-                        
-                        # Limpiar los estados de archivado en la sesión para esos IDs
                         for pid in ids_a_borrar:
                             if f"archivado_{pid}" in st.session_state:
                                 del st.session_state[f"archivado_{pid}"]
-                                
-                    st.success(f"💥 Éxito: Se eliminaron {len(ids_a_borrar)} pedidos cerrados de la base de datos.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al intentar purgar la base de datos: {e}")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Desplegar la lista de pedidos archivados por si se necesita revisar antes de borrar
+                        st.success(f"Eliminados {len(ids_a_borrar)} pedidos.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        
+        st.markdown("<div style='border-top: 1px dashed #cccccc; margin-top: 2px; margin-bottom: 8px;'></div>", unsafe_allow_html=True)
+        
+        # --- DESPLIEGUE DE LISTA DE PEDIDOS ---
+        if not archivados_del_turno:
+            st.info("No se registran pedidos archivados en esta sesión.")
+        else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
+                    ch1, ch2, ch3 = st.columns([0.76, 0.12, 0.12])
                     with ch1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
                     with ch2:
