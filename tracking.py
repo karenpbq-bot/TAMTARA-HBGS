@@ -1,12 +1,41 @@
 import streamlit as st
 import pandas as pd
 from database import conectar
+from datetime import datetime
 
 def mostrar_modulo_tracking():
+    # --- INYECCIÓN CSS PARA DISEÑO ULTRA-COMPACTO Y TARJETAS PLANAS ---
+    st.markdown("""
+        <style>
+            .stHeading h3, .stHeading h2 {
+                font-size: 1.1rem !important;
+                margin-bottom: 2px !important;
+                padding-bottom: 2px !important;
+            }
+            div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
+                padding: 4px 8px !important;
+                margin-bottom: 3px !important;
+                border-radius: 4px !important;
+                background-color: #f9f9f9 !important;
+            }
+            div[data-testid="stBlock"] div[data-testid="element-container"] p {
+                font-size: 0.85rem !important;
+                margin: 1px 0 !important;
+                line-height: 1.1 !important;
+            }
+            div[data-testid="stBlock"] button {
+                padding: 2px 6px !important;
+                font-size: 0.8rem !important;
+                min-height: 24px !important;
+                height: 26px !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.header("📋 Panel de Control de Producción - La Exacta")
     db = conectar()
     
-    # Extraemos todos los pedidos para procesarlos en pestañas separadas
+    # Extraemos todos los pedidos vigentes
     try:
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
@@ -18,15 +47,41 @@ def mostrar_modulo_tracking():
         st.info("No hay registros de pedidos en el sistema.")
         return
 
+    # --- LÓGICA DE FORMATEO: NÚMERO DE PEDIDO DDMM-CORRELATIVO ---
+    for p in todos_los_pedidos:
+        try:
+            # Extraemos el día y mes de la fecha de creación en Supabase
+            dt = datetime.fromisoformat(p['created_at'].replace('Z', '+00:00'))
+            prefijo_fecha = dt.strftime("%d%m")
+        except:
+            prefijo_fecha = datetime.now().strftime("%d%m")
+        
+        # Formateamos el ID numérico como un correlativo de 3 dígitos (ej: 001, 002)
+        p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
+
+    # --- BÚSQUEDA POR PALABRA CLAVE ---
+    busqueda = st.text_input("🔍 Buscar pedido (Ej: Código, Cliente, Mesa, Dirección o Método de pago):", placeholder="Escribe aquí para filtrar...").strip().lower()
+
+    # Filtrado dinámico por palabra clave
+    if busqueda:
+        pedidos_filtrados = []
+        for p in todos_los_pedidos:
+            # Campos en los que el buscador rastreará coincidencias
+            cadena_auditoria = f"{p['codigo_exacta']} {p['cliente']} {p.get('destino_entrega','')} {p.get('metodo_pago','')}".lower()
+            if busqueda in cadena_auditoria:
+                pedidos_filtrados.append(p)
+    else:
+        pedidos_filtrados = todos_los_pedidos
+
     # Organización de Pestañas Principales
     tab_proceso, tab_entregados = st.tabs(["🔥 Pedidos en Proceso", "🏁 Historial de Entregados"])
 
-    # --- PESTAÑA 1: PEDIDOS ACTIVOS EN COLO RESUMIDA ---
+    # --- PESTAÑA 1: TABLERO KANBAN ULTRA-COMPACTO ---
     with tab_proceso:
-        pedidos_activos = [p for p in todos_los_pedidos if p.get('estado') != 'Entregado']
+        pedidos_activos = [p for p in pedidos_filtrados if p.get('estado') != 'Entregado']
         
         if not pedidos_activos:
-            st.success("¡Excelente! No hay órdenes pendientes en producción.")
+            st.success("No hay órdenes pendientes en producción con los criterios indicados.")
         else:
             en_cocina = [p for p in pedidos_activos if p.get('estado') == 'En cocina']
             listos = [p for p in pedidos_activos if p.get('estado') == 'Listo']
@@ -34,29 +89,24 @@ def mostrar_modulo_tracking():
 
             col1, col2, col3 = st.columns(3)
 
-            # CARRIL: EN COCINA
+            # CARRIL 1: EN COCINA
             with col1:
                 st.subheader("👨‍🍳 En Cocina")
                 st.divider()
                 for p in en_cocina:
                     with st.container(border=True):
-                        # VISTA COMPACTA: Solo ID, Cliente y Destino
-                        st.markdown(f"### 🪪 N° {p['id']}")
-                        st.write(f"**{p['cliente']}** ({p['destino_entrega']})")
-                        
+                        st.markdown(f"**🪪 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})`")
                         if st.button("🔔 Listo", key=f"fwd_{p['id']}", use_container_width=True, type="primary"):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
-            # CARRIL: LISTO EN BARRA
+            # CARRIL 2: LISTO EN BARRA
             with col2:
-                st.subheader("🛎️ Listo en Barra")
+                st.subheader("🛎️ En Barra")
                 st.divider()
                 for p in listos:
                     with st.container(border=True):
-                        st.markdown(f"### 📦 N° {p['id']}")
-                        st.write(f"**{p['cliente']}** ({p['destino_entrega']})")
-                        
+                        st.markdown(f"**📦 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})`")
                         c_b1, c_b2 = st.columns(2)
                         with c_b1:
                             if p['tipo_entrega'] == "Delivery":
@@ -68,50 +118,44 @@ def mostrar_modulo_tracking():
                                     db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                                     st.rerun()
                         with c_b2:
-                            # BOTÓN DE REVERSA POR ERROR
                             if st.button("⏪ Regresar", key=f"rev_{p['id']}", use_container_width=True):
                                 db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                                 st.rerun()
 
-            # CARRIL: EN CAMINO (LOGÍSTICA DELIVERY)
+            # CARRIL 3: EN CAMINO
             with col3:
-                st.subheader("🛵 En Camino")
+                st.subheader("🚚 En Camino")
                 st.divider()
                 for p in despachados:
                     with st.container(border=True):
-                        st.markdown(f"### 🏍️ N° {p['id']}")
-                        st.write(f"**{p['cliente']}** ({p['destino_entrega']})")
-                        
+                        st.markdown(f"**🏍️ N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})`")
                         c_d1, c_d2 = st.columns(2)
                         with c_d1:
                             if st.button("🏁 Recibido", key=f"fwd_fn_{p['id']}", use_container_width=True, type="primary"):
                                 db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                                 st.rerun()
                         with c_d2:
-                            # BOTÓN DE REVERSA POR ERROR
                             if st.button("⏪ Regresar", key=f"rev_d_{p['id']}", use_container_width=True):
                                 db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                                 st.rerun()
 
-    # --- PESTAÑA 2: HISTORIAL COMPACTO DE ENTREGADOS ---
+    # --- PESTAÑA 2: HISTORIAL CON RETORNO OPERATIVO ---
     with tab_entregados:
-        pedidos_entregados = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado']
+        pedidos_entregados = [p for p in pedidos_filtrados if p.get('estado') == 'Entregado']
         
         if not pedidos_entregados:
-            st.info("Aún no se registran pedidos entregados en el turno actual.")
+            st.info("No hay registros de pedidos archivados que coincidan con la búsqueda.")
         else:
             st.subheader("✅ Órdenes Archivadas")
-            # Tabla ejecutiva rápida para auditoría
-            data_tabla = []
             for p in pedidos_entregados:
-                data_tabla.append({
-                    "N° Pedido": p['id'],
-                    "Cliente": p['cliente'],
-                    "Entrega": p['tipo_entrega'],
-                    "Destino/Mesa": p['destino_entrega'],
-                    "Pago": p['metodo_pago'],
-                    "Monto Cobrado": f"S/. {p['monto_total']:.2f}"
-                })
-            
-            df_entregados = pd.DataFrame(data_tabla)
-            st.dataframe(df_entregados, use_container_width=True, hide_index=True)
+                with st.container(border=True):
+                    ch1, ch2, ch3 = st.columns([0.2, 0.6, 0.2])
+                    with ch1:
+                        st.markdown(f"**🟢 N° {p['codigo_exacta']}**")
+                    with ch2:
+                        st.markdown(f"**Cliente:** {p['cliente']} | **Tipo:** {p['tipo_entrega']} ({p['destino_entrega']}) | **Monto:** S/. {p['monto_total']:.2f}")
+                    with ch3:
+                        if st.button("⏪ Devolver", key=f"ret_ent_{p['id']}", use_container_width=True):
+                            estado_retorno = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
+                            db.table("pedidos").update({"estado": estado_retorno}).eq("id", p['id']).execute()
+                            st.rerun()
