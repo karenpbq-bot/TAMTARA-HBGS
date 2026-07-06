@@ -66,7 +66,7 @@ def mostrar_modulo_tracking():
 
     db = conectar()
     
-    # --- CONSULTA REAL SIN CACHÉ DE SESIÓN (GARANTIZA VER PEDIDOS NUEVOS AL INSTANTE) ---
+    # --- CONSULTA REAL SIN CACHÉ (GARANTIZA VER PEDIDOS NUEVOS AL INSTANTE) ---
     try:
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
@@ -84,7 +84,7 @@ def mostrar_modulo_tracking():
         st.info("No hay registros de pedidos en el sistema actualmente.")
         return
 
-    # --- CABECERA INTEGRADA HORIZONTAL CORREGIDA (Distribución 0.3 a 0.7 para expandir el filtro) ---
+    # --- CABECERA INTEGRADA HORIZONTAL (Distribución 0.3 a 0.7 para expandir el filtro por completo) ---
     c_nav1, c_nav2 = st.columns([0.3, 0.7])
     
     with c_nav1:
@@ -102,7 +102,7 @@ def mostrar_modulo_tracking():
             label_visibility="collapsed"
         ).strip().lower()
 
-    # Filtrado lógico rápido
+    # Filtrado lógico inmediato
     if busqueda:
         pedidos_filtrados = [
             p for p in todos_los_pedidos 
@@ -115,7 +115,6 @@ def mostrar_modulo_tracking():
     # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
     # ==========================================
     if navegacion == "🔥 Pedidos en Proceso":
-        # Se filtran los pedidos que pertenecen al flujo activo del tablero
         pedidos_tablero = [p for p in pedidos_filtrados if st.session_state.get(f"archivado_{p['id']}", False) != True]
         
         en_cocina = [p for p in pedidos_tablero if p.get('estado') == 'En cocina']
@@ -191,7 +190,7 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega']})</span></p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = True
