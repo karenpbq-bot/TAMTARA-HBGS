@@ -207,11 +207,51 @@ def mostrar_modulo_tracking():
     elif navegacion == "🗄️ Pedidos Cerrados":
         st.markdown("### 🗄️ Historial de Órdenes Archivadas")
         
-        archivados_del_turno = [p for p in pedidos_filtrados if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
+        # Obtener los pedidos que están en estado 'Entregado' y marcados como archivados en la sesión
+        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
         
+        # --- SISTEMA DE ALERTA DE CAPACIDAD DE BASE DE DATOS ---
+        total_registros_sistema = len(todos_los_pedidos)
+        limite_preventivo = 10000  # Alerta a los 10k registros para mantener la velocidad óptima
+        
+        c_info1, c_info2 = st.columns([0.5, 0.5])
+        with c_info1:
+            st.metric("Pedidos Totales en BD", f"{total_registros_sistema} / {limite_preventivo}")
+        
+        with c_info2:
+            if total_registros_sistema >= limite_preventivo:
+                st.warning("⚠️ ALERTA: La base de datos está acumulando demasiados registros. Se recomienda vaciar el historial para evitar lentitud.")
+            else:
+                st.success("🟢 Almacenamiento optimizado. Espacio en base de datos al 100% disponible.")
+        
+        st.divider()
+        
+        # --- BOTÓN DE BORRADO PERMANENTE ---
         if not archivados_del_turno:
             st.info("No se registran pedidos archivados en esta sesión.")
         else:
+            # Botón de peligro para purgar la base de datos
+            if st.button("🗑️ Vaciar Historial Permanentemente", use_container_width=True, type="secondary", help="Borra definitivamente estos registros de Supabase"):
+                ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
+                
+                try:
+                    with st.spinner("Purgando registros de Supabase..."):
+                        # Borrar físicamente de la tabla pedidos en la base de datos
+                        db.table("pedidos").delete().in_("id", ids_a_borrar).execute()
+                        
+                        # Limpiar los estados de archivado en la sesión para esos IDs
+                        for pid in ids_a_borrar:
+                            if f"archivado_{pid}" in st.session_state:
+                                del st.session_state[f"archivado_{pid}"]
+                                
+                    st.success(f"💥 Éxito: Se eliminaron {len(ids_a_borrar)} pedidos cerrados de la base de datos.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al intentar purgar la base de datos: {e}")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Desplegar la lista de pedidos archivados por si se necesita revisar antes de borrar
             for p in archivados_del_turno:
                 with st.container(border=True):
                     ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
