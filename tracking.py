@@ -3,7 +3,7 @@ import pandas as pd
 from database import conectar
 from datetime import datetime
 
-# --- VENTANA EMERGENTE PARA DETALLE DE RECLAMOS (AUDITORÍA DE PRODUCTOS) ---
+# --- VENTANA EMERGENTE PARA DETALLE DE RECLAMOS/AUDITORÍA ---
 @st.dialog("📋 Detalle del Pedido Cerrado")
 def mostrar_ventana_emergente_detalle(pedido):
     st.markdown(f"### 🪪 Pedido N° {pedido['codigo_exacta']}")
@@ -26,117 +26,9 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CONFIGURACIÓN DE DISEÑO DE PANTALLA ANCHA ---
-    try:
-        st.set_page_config(layout="wide")
-    except:
-        pass
-
-    # --- INYECCIÓN DE STYLES CSS BLINDADOS (SOLUCIÓN DE DESPLAZAMIENTO VERTICAL) ---
-    st.markdown("""
-        <style>
-            /* 1. Forzar un margen superior generoso para que la barra de Streamlit/GitHub no tape nada */
-            div.block-container {
-                padding-top: 55px !important; 
-                padding-bottom: 1rem !important;
-                padding-left: 1rem !important;
-                padding-right: 1rem !important;
-                max-width: 100% !important;
-            }
-            
-            /* Títulos superiores de los 4 carriles Kanban */
-            .titulo-carril {
-                font-size: 0.85rem !important;
-                font-weight: bold !important;
-                margin: 0 !important;
-                padding: 4px 0 !important;
-                text-align: center;
-                background-color: #f1f3f5 !important;
-                border-radius: 4px !important;
-                border: 1px solid #e9ecef !important;
-            }
-            
-            /* Línea divisoria horizontal limpia */
-            .linea-division {
-                border-top: 2px solid #343a40 !important;
-                margin-top: 2px !important;
-                margin-bottom: 6px !important;
-            }
-            
-            /* Hacer los rectángulos de cada pedido sumamente planos */
-            div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
-                padding: 2px 6px !important;
-                margin-bottom: 2px !important;
-                border-radius: 3px !important;
-                background-color: #fdfdfd !important;
-                border: 1px solid #dcdcdc !important;
-                width: 100% !important;
-            }
-            
-            /* Texto micro en una sola línea continua sin saltos */
-            div[data-testid="stBlock"] div[data-testid="element-container"] p {
-                font-size: 0.72rem !important;
-                margin: 0 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                line-height: 22px !important;
-            }
-            
-            /* ALINEACIÓN VERTICAL EXCLUSIVA PARA TARJETAS (EVITA QUE FLOTEN AL CENTRO) */
-            div.stContainer div[data-testid="stHorizontalBlock"] {
-                gap: 2px !important;
-                align-items: flex-start !important;
-            }
-            
-            div.stContainer div[data-testid="stHorizontalBlock"] > div {
-                display: flex !important;
-                align-items: flex-start !important;
-                align-content: flex-start !important;
-            }
-            
-            /* =======================================================
-               🔥 RESTABLECIMIENTO DE COLORES ESPECÍFICOS DE BOTONES
-               ======================================================= */
-            /* Botón Avanzar, Archivar y Ver Detalle (VERDE) */
-            div.stButton > button[key*="fwd_"],
-            div.stButton > button[key*="arc_"],
-            div.stButton > button[key*="pop_"] {
-                background-color: #28a745 !important;
-                color: white !important;
-                border: 1px solid #28a745 !important;
-                font-weight: bold !important;
-                font-size: 0.80rem !important;
-                height: 22px !important;
-                min-height: 22px !important;
-                line-height: 1 !important;
-                padding: 0px !important;
-            }
-            div.stButton > button[key*="fwd_"]:hover,
-            div.stButton > button[key*="arc_"]:hover,
-            div.stButton > button[key*="pop_"]:hover {
-                background-color: #218838 !important;
-                border-color: #218838 !important;
-            }
-
-            /* Botón Retroceder y Devolver al Tablero Activo (AZUL) */
-            div.stButton > button[key*="rev_"] {
-                background-color: #007bff !important;
-                color: white !important;
-                border: 1px solid #007bff !important;
-                font-weight: bold !important;
-                font-size: 0.80rem !important;
-                height: 22px !important;
-                min-height: 22px !important;
-                line-height: 1 !important;
-                padding: 0px !important;
-            }
-            div.stButton > button[key*="rev_"]:hover {
-                background-color: #0069d9 !important;
-                border-color: #0069d9 !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    # --- CARGA DEL DISEÑO DESDE EL ARCHIVO EXTERNO style.css ---
+    with open("style.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
     db = conectar()
     
@@ -160,14 +52,10 @@ def mostrar_modulo_tracking():
             prefijo_fecha = datetime.now().strftime("%d%m")
         p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
 
-    # =========================================================================
-    # 🎯 REDISEÑO DE INTERFAZ: CABECERA INTEGRADA TOTALMENTE ACCESIBLE
-    # =========================================================================
-    # Ponemos la navegación y la barra de búsqueda juntas en el área de trabajo principal
-    c_nav1, c_nav2 = st.columns([0.5, 0.5])
+    # --- CABECERA INTEGRADA TOTALMENTE ACCESIBLE ---
+    c_nav1, c_nav2 = st.columns([0.4, 0.6])
     
     with c_nav1:
-        # Selector de módulos en formato de botones ejecutivos estables
         navegacion = st.radio(
             "Seleccione Vista:",
             ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados"],
@@ -176,7 +64,6 @@ def mostrar_modulo_tracking():
         )
         
     with c_nav2:
-        # Buscador universal inalterable por el CSS lateral
         busqueda = st.text_input(
             "", 
             placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
@@ -219,7 +106,7 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
-        # Fila 2: Renderizado de Tarjetas Planas sobre Columnas Expandidas
+        # Fila 2: Renderizado de Tarjetas Planas
         col1, col2, col3, col4 = st.columns(4)
 
         # 1. COLUMNA: EN COCINA
@@ -275,7 +162,7 @@ def mostrar_modulo_tracking():
                     with cx1:
                         st.markdown(f"**{p['codigo_exacta']}** {p['cliente']} `({p['destino_entrega']})`")
                     with cx2:
-                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar permanentemente"):
+                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = True
                             st.rerun()
                     with cx3:
@@ -285,7 +172,7 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # CASO 2: RESTRUCTURACIÓN DE PEDIDOS CERRADOS
+    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
         st.markdown("### 🗄️ Historial de Órdenes Archivadas")
@@ -297,16 +184,13 @@ def mostrar_modulo_tracking():
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    # Fila plana de auditoría de 3 secciones
                     ch1, ch2, ch3 = st.columns([0.76, 0.12, 0.12])
                     with ch1:
                         st.markdown(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} `({p['destino_entrega']})` • Total: **S/. {p['monto_total']:.2f}**")
                     with ch2:
-                        # ACTIVACIÓN DEL BOTÓN DE DETALLE VERDE (OJO)
-                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True, help="Ver desglose completo"):
+                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
-                        # Botón Azul de Devolución
-                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True, help="Regresar al Tablero Activo"):
+                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = False
                             st.rerun()
