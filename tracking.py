@@ -51,12 +51,23 @@ def mostrar_modulo_tracking():
                 margin-top: 2px !important;
                 margin-bottom: 6px !important;
             }
+            .texto-pedido-compacto {
+                font-size: 0.78rem !important;
+                margin: 0 !important;
+                line-height: 1.2 !important;
+                color: #313131 !important;
+            }
+            .parentesis-verde {
+                color: #28a745 !important;
+                font-weight: bold !important;
+            }
         </style>
     """, unsafe_allow_html=True)
 
     db = conectar()
     
-    # --- CARGA OPTIMIZADA EN MEMORIA VIVA ---
+    # --- CARGA OPTIMIZADA CON REFRESCO INTELIGENTE ---
+    # Si la variable no existe en la sesión, consultamos a Supabase
     if 'lista_pedidos_tracking' not in st.session_state:
         try:
             res = db.table("pedidos").select("*").order("id").execute()
@@ -77,12 +88,8 @@ def mostrar_modulo_tracking():
 
     pedidos_actuales = st.session_state.lista_pedidos_tracking
 
-    if not pedidos_actuales:
-        st.info("No hay registros de pedidos en el sistema.")
-        return
-
-    # --- CABECERA INTEGRADA HORIZONTAL CORREGIDA (Distribución 0.3 a 0.7 para expandir el filtro) ---
-    c_nav1, c_nav2 = st.columns([0.3, 0.7])
+    # Botón sutil en la barra superior para forzar la sincronización manual si se requiere visualizar un pedido inmediato
+    c_nav1, c_nav2, c_refresh = st.columns([0.3, 0.6, 0.1])
     
     with c_nav1:
         navegacion = st.radio(
@@ -98,6 +105,16 @@ def mostrar_modulo_tracking():
             placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
             label_visibility="collapsed"
         ).strip().lower()
+        
+    with c_refresh:
+        if st.button("🔄", key="btn_refresh_global", use_container_width=True, help="Sincronizar nuevos pedidos"):
+            if 'lista_pedidos_tracking' in st.session_state:
+                del st.session_state.lista_pedidos_tracking
+            st.rerun()
+
+    if not pedidos_actuales:
+        st.info("No hay registros de pedidos en el sistema. Intente refrescar el tablero.")
+        return
 
     if busqueda:
         pedidos_filtrados = [
@@ -118,7 +135,6 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
-        # Títulos de Carriles
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -141,12 +157,12 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2 = st.columns([0.80, 0.20])
                     with cx1:
-                        # Se aplica el formato de texto pequeño (.caption) para encoger la tipografía
-                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
-                            p['estado'] = "Listo"
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
 
         # 2. COLUMNA: LISTO EN BARRA
@@ -155,18 +171,19 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
                         siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
-                            p['estado'] = penultimate_status_check if siguiente == "Despachado" else "Entregado"
-                            p['estado'] = siguiente
                             db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
-                            p['estado'] = "En cocina"
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
 
         # 3. COLUMNA: EN CAMINO
@@ -175,16 +192,18 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
-                            p['estado'] = "Entregado"
                             db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
-                            p['estado'] = "Listo"
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
 
         # 4. COLUMNA: ENTREGADO
@@ -193,16 +212,19 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
                     with cx1:
-                        st.caption(f"**{p['codigo_exacta']}** {p['cliente']} :green[({p['destino_entrega']})]")
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = True
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
                     with cx3:
                         if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
                             anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
-                            p['estado'] = anterior
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
 
     # ==========================================
@@ -220,11 +242,13 @@ def mostrar_modulo_tracking():
                 with st.container(border=True):
                     ch1, ch2, ch3 = st.columns([0.70, 0.15, 0.15])
                     with ch1:
-                        st.caption(f"**🟢 N° {p['codigo_exacta']}** • {p['cliente']} :green[({p['destino_entrega']})] • Total: **S/. {p['monto_total']:.2f}**")
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
                     with ch2:
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = False
+                            if 'lista_pedidos_tracking' in st.session_state:
+                                del st.session_state.lista_pedidos_tracking
                             st.rerun()
