@@ -26,9 +26,124 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CARGA DEL DISEÑO DESDE EL ARCHIVO EXTERNO style.css ---
-    with open("style.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    # --- CONFIGURACIÓN DE PÁGINA ANCHA SEGURA ---
+    try:
+        st.set_page_config(layout="wide")
+    except:
+        pass
+
+    # --- INYECCIÓN DIRECTA DE CSS (FUERZA EL DISEÑO PLANO Y COLORES) ---
+    st.markdown("""
+        <style>
+            /* 1. Forzar el uso del 100% de la pantalla de laptops/tablets */
+            div.block-container {
+                padding-top: 55px !important; 
+                padding-bottom: 1rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+                max-width: 100% !important;
+            }
+
+            /* 2. Cabeceras fijas de los 4 carriles */
+            .titulo-carril {
+                font-size: 0.82rem !important;
+                font-weight: bold !important;
+                margin: 0 !important;
+                padding: 5px 0 !important;
+                text-align: center;
+                background-color: #f1f3f5 !important;
+                border-radius: 4px !important;
+                border: 1px solid #e9ecef !important;
+                color: #333333 !important;
+            }
+
+            .linea-division {
+                border-top: 2px solid #343a40 !important;
+                margin-top: 2px !important;
+                margin-bottom: 6px !important;
+            }
+
+            /* 3. Rectángulos de los pedidos sumamente planos */
+            div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
+                padding: 1px 4px !important;
+                margin-bottom: 2px !important;
+                border-radius: 4px !important;
+                background-color: #fdfdfd !important;
+                border: 1px solid #cccccc !important;
+                width: 100% !important;
+            }
+
+            /* Letras micro-compactas en una sola línea horizontal sin saltos */
+            div[data-testid="stBlock"] div[data-testid="element-container"] p {
+                font-size: 0.72rem !important;
+                margin: 0 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                line-height: 22px !important;
+                color: #222222 !important;
+            }
+
+            /* 4. Alineación superior absoluta para evitar el centrado vertical */
+            div.stContainer div[data-testid="stHorizontalBlock"] {
+                gap: 2px !important;
+                align-items: flex-start !important;
+            }
+
+            div.stContainer div[data-testid="stHorizontalBlock"] > div {
+                display: flex !important;
+                align-items: flex-start !important;
+                align-content: flex-start !important;
+            }
+
+            /* =======================================================
+               🎨 INYECCIÓN CORPORATIVA DE COLORES EN LOS BOTONES
+               ======================================================= */
+            /* Botón Avanzar, Archivar y Ver Detalle (VERDE SÓLIDO) */
+            div.stButton > button[key*="fwd_"],
+            div.stButton > button[key*="arc_"],
+            div.stButton > button[key*="pop_"] {
+                background-color: #28a745 !important;
+                color: white !important;
+                border: 1px solid #28a745 !important;
+                font-weight: bold !important;
+                font-size: 0.85rem !important;
+                height: 22px !important;
+                min-height: 22px !important;
+                line-height: 1 !important;
+                padding: 0px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            div.stButton > button[key*="fwd_"]:hover,
+            div.stButton > button[key*="arc_"]:hover,
+            div.stButton > button[key*="pop_"]:hover {
+                background-color: #218838 !important;
+                border-color: #218838 !important;
+            }
+
+            /* Botón Retroceder y Volver (AZUL SÓLIDO) */
+            div.stButton > button[key*="rev_"] {
+                background-color: #007bff !important;
+                color: white !important;
+                border: 1px solid #007bff !important;
+                font-weight: bold !important;
+                font-size: 0.85rem !important;
+                height: 22px !important;
+                min-height: 22px !important;
+                line-height: 1 !important;
+                padding: 0px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            div.stButton > button[key*="rev_"]:hover {
+                background-color: #0069d9 !important;
+                border-color: #0069d9 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
     db = conectar()
     
@@ -106,7 +221,7 @@ def mostrar_modulo_tracking():
             st.markdown('<p class="titulo-carril">🏁 Entregado</p>', unsafe_allow_html=True)
             st.markdown('<div class="linea-division"></div>', unsafe_allow_html=True)
 
-        # Fila 2: Renderizado de Tarjetas Planas
+        # Fila 2: Renderizado de Tarjetas Planas sobre Columnas Expandidas
         col1, col2, col3, col4 = st.columns(4)
 
         # 1. COLUMNA: EN COCINA
@@ -177,10 +292,10 @@ def mostrar_modulo_tracking():
     elif navegacion == "🗄️ Pedidos Cerrados":
         st.markdown("### 🗄️ Historial de Órdenes Archivadas")
         
-        archivados_del_turno = [p for p in pedidos_filtrados if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
+        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
         
         if not archivados_del_turno:
-            st.info("No se registran pedidos archivados de forma definitiva con los criterios indicados.")
+            st.info("No se registran pedidos archivados de forma definitiva en el turno actual.")
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
