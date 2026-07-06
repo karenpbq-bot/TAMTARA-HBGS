@@ -66,12 +66,11 @@ def mostrar_modulo_tracking():
 
     db = conectar()
     
-    # --- CONSULTA REAL SIN CACHÉ (GARANTIZA VER PEDIDOS NUEVOS AL INSTANTE) ---
+    # --- CONSULTA REAL SIN CACHÉ (PEDIDOS EN TIEMPO REAL) ---
     try:
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
         
-        # Formatear el código correlativo de manera eficiente
         prefijo_hoy = datetime.now().strftime("%d%m")
         for p in todos_los_pedidos:
             p['codigo_exacta'] = f"{prefijo_hoy}-{int(p['id']):03d}"
@@ -84,10 +83,9 @@ def mostrar_modulo_tracking():
         st.info("No hay registros de pedidos en el sistema actualmente.")
         return
 
-    # --- CABECERA INTEGRADA HORIZONTAL (Distribución 0.3 a 0.7 para expandir el filtro por completo) ---
-    c_nav1, c_nav2 = st.columns([0.3, 0.7])
-    
-    with c_nav1:
+    # --- FILA 1: SELECTOR DE VISTAS (Aislado a la izquierda) ---
+    c_pestana, _ = st.columns([0.4, 0.6])
+    with c_pestana:
         navegacion = st.radio(
             "Seleccione Vista:",
             ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados"],
@@ -95,12 +93,14 @@ def mostrar_modulo_tracking():
             label_visibility="collapsed"
         )
         
-    with c_nav2:
-        busqueda = st.text_input(
-            "", 
-            placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
-            label_visibility="collapsed"
-        ).strip().lower()
+    # --- FILA 2: FILTRO UNIVERSAL (Abarca el 100% del ancho del tablero) ---
+    busqueda = st.text_input(
+        "", 
+        placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
+        label_visibility="collapsed"
+    ).strip().lower()
+
+    st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
     # Filtrado lógico inmediato
     if busqueda:
