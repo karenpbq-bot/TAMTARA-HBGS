@@ -6,7 +6,7 @@ from pedidos import mostrar_modulo_pedidos
 from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
-from traking import mostrar_modulo_traking
+from traking import mostrar_modulo_tracking
 
 # 1. CONFIGURACIÓN DE PÁGINA NATIVA (Logo en la pestaña del navegador)
 st.set_page_config(
@@ -44,7 +44,7 @@ if autenticado:
         elif menu == "Pedidos (Ventas)":
             mostrar_modulo_pedidos()
         elif menu == "Tracking de Pedidos":
-            mostrar_modulo_traking()
+            mostrar_modulo_tracking()
             
         st.sidebar.divider()
         if st.sidebar.button("Cerrar Sesión"):
