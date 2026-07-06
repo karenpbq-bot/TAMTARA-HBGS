@@ -6,6 +6,7 @@ from pedidos import mostrar_modulo_pedidos
 from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
+from traking import mostrar_modulo_traking
 
 # 1. CONFIGURACIÓN DE PÁGINA NATIVA (Logo en la pestaña del navegador)
 st.set_page_config(
@@ -28,7 +29,7 @@ if autenticado:
             
         st.sidebar.title("🎛️ Panel Admin")
         menu = st.sidebar.selectbox("Seleccione un Módulo", 
-            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)"])
+            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"])
         
         if menu == "Inicio":
             st.header("👑 Panel de Control")
@@ -42,6 +43,8 @@ if autenticado:
             mostrar_modulo_carta()
         elif menu == "Pedidos (Ventas)":
             mostrar_modulo_pedidos()
+        elif menu == "Tracking de Pedidos":
+            mostrar_modulo_traking()
             
         st.sidebar.divider()
         if st.sidebar.button("Cerrar Sesión"):
