@@ -7,10 +7,10 @@ from costos import mostrar_modulo_costos
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 
-# 1. Configuración de página base limpia
+# 1. CONFIGURACIÓN DE PÁGINA NATIVA (Logo en la pestaña del navegador)
 st.set_page_config(
-    page_title="La Exacta",
-    layout="centered", 
+    page_title="La Exacta - Hamburguesería",
+    layout="centered",
     initial_sidebar_state="collapsed",
     page_icon=".streamlit/static/logo.png"
 )
@@ -22,11 +22,14 @@ autenticado, rol = login_manager()
 if autenticado:
     if rol == 'admin':
         # --- VISTA KAREN (ADMIN) ---
+        ruta_logo = os.path.join(os.path.dirname(__file__), ".streamlit", "static", "logo.png")
+        if os.path.exists(ruta_logo):
+            st.sidebar.image(ruta_logo, use_container_width=True)
+            
         st.sidebar.title("🎛️ Panel Admin")
         menu = st.sidebar.selectbox("Seleccione un Módulo", 
             ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)"])
         
-        # AQUÍ ES DONDE LIMPIAMOS EL CONTENIDO CENTRAL
         if menu == "Inicio":
             st.header("👑 Panel de Control")
             st.info("Bienvenida al centro de mando de La Exacta. Usa el menú lateral para gestionar tu negocio.")
@@ -46,11 +49,9 @@ if autenticado:
             st.rerun()
 
     elif rol == 'cliente':
-        # --- VISTA CLIENTE (DELIVERY) ---
-        # Botón discreto para volver
+        # --- VISTA CLIENTE / COUNTER ---
         if st.sidebar.button("⬅️ Inicio"):
             st.session_state.clear()
             st.rerun()
             
-        # Solo mostramos el catálogo de pedidos
         mostrar_modulo_pedidos()
