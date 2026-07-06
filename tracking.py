@@ -4,15 +4,7 @@ from database import conectar
 from datetime import datetime
 
 def mostrar_modulo_tracking():
-    # --- CONFIGURACIÓN DE PÁGINA ANCHA ---
-    # Nota: Si ya llamas a st.set_page_config en tu main.py, es ideal asegurarse de que tenga layout="wide"
-    try:
-        st.set_page_config(layout="wide")
-    except:
-        # Si ya se configuró en el main, Streamlit ignorará esta línea sin lanzar error crítico
-        pass
-
-    # --- INYECCIÓN DE STYLES CSS PARA MÁXIMO ANCHO Y DENSIDAD ---
+    # --- INYECCIÓN DE STYLES CSS DEFINITIVOS (ALINEACIÓN SUPERIOR ABSOLUTA) ---
     st.markdown("""
         <style>
             /* Eliminar márgenes internos de Streamlit para aprovechar toda la pantalla */
@@ -24,7 +16,7 @@ def mostrar_modulo_tracking():
                 max-width: 100% !important;
             }
             
-            /* Ajustar títulos de los carriles */
+            /* Alineación estricta y tamaño para los títulos de carriles */
             .titulo-carril {
                 font-size: 0.85rem !important;
                 font-weight: bold !important;
@@ -36,37 +28,47 @@ def mostrar_modulo_tracking():
                 border: 1px solid #e9ecef !important;
             }
             
-            /* Línea divisoria horizontal */
+            /* Línea divisoria horizontal limpia */
             .linea-division {
                 border-top: 2px solid #343a40 !important;
                 margin-top: 2px !important;
                 margin-bottom: 6px !important;
             }
             
-            /* Rectángulos de pedidos expandidos a lo ancho */
+            /* Hacer los rectángulos de cada pedido sumamente planos */
             div[data-testid="stBlock"] div[data-testid="element-container"] .stContainer {
                 padding: 2px 6px !important;
                 margin-bottom: 2px !important;
                 border-radius: 3px !important;
                 background-color: #fdfdfd !important;
                 border: 1px solid #dcdcdc !important;
-                width: 100% !important; /* Fuerza el uso del 100% del carril */
+                width: 100% !important;
             }
             
-            /* Texto en una sola línea continua */
+            /* Texto micro en una sola línea continua sin saltos */
             div[data-testid="stBlock"] div[data-testid="element-container"] p {
-                font-size: 0.72rem !important; /* Incrementado sutilmente para mejor lectura aprovechando el ancho */
+                font-size: 0.72rem !important;
                 margin: 0 !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                line-height: 22px !important; 
+                line-height: 22px !important;
             }
             
-            /* Forzar comportamiento alineado en la grilla interna de las tarjetas */
-            div[data-testid="stHorizontalBlock"] {
+            /* =======================================================
+               🎯 CORRECCIÓN DE ALINEACIÓN VERTICAL (TOP-ALIGNED)
+               ======================================================= */
+            /* Forzar que las subcolumnas dentro de cada tarjeta se alineen arriba */
+            div[data-testid="stContainer"] div[data-testid="stHorizontalBlock"] {
                 gap: 2px !important;
-                align-items: center !important;
+                align-items: flex-start !important; /* Cambiado de center/baseline a flex-start */
+            }
+            
+            /* Asegurar que los contenedores hijos de la columna sigan la alineación superior */
+            div[data-testid="stContainer"] div[data-testid="stHorizontalBlock"] > div {
+                display: flex !important;
+                align-items: flex-start !important;
+                align-content: flex-start !important;
             }
             
             .titulo-tablero {
@@ -82,10 +84,11 @@ def mostrar_modulo_tracking():
             }
             
             /* =======================================================
-               🔥 SELECCIÓN ABSOLUTA POR POSICIÓN DE COLUMNA DE BOTÓN
+               🔥 CORRECCIÓN DE COLORES DE BOTONES
                ======================================================= */
-            /* Botón Avanzar (VERDE) */
-            div[data-testid="stHorizontalBlock"] > div:nth-child(2) button {
+            /* CUALQUIER BOTÓN QUE CONTENGA ANVANCE O ARCHIVADO SE PINTA EN VERDE */
+            div[data-testid="stHorizontalBlock"] button[key*="fwd_"],
+            div[data-testid="stHorizontalBlock"] button[key*="arc_"] {
                 background-color: #28a745 !important;
                 color: white !important;
                 border: 1px solid #28a745 !important;
@@ -96,12 +99,13 @@ def mostrar_modulo_tracking():
                 line-height: 1 !important;
                 padding: 0px !important;
             }
-            div[data-testid="stHorizontalBlock"] > div:nth-child(2) button:hover {
+            div[data-testid="stHorizontalBlock"] button[key*="fwd_"]:hover,
+            div[data-testid="stHorizontalBlock"] button[key*="arc_"]:hover {
                 background-color: #218838 !important;
             }
 
-            /* Botón Regresar (AZUL) */
-            div[data-testid="stHorizontalBlock"] > div:nth-child(3) button {
+            /* CUALQUIER BOTÓN QUE CONTENGA RETROCEDER SE PINTA EN AZUL */
+            div[data-testid="stHorizontalBlock"] button[key*="rev_"] {
                 background-color: #007bff !important;
                 color: white !important;
                 border: 1px solid #007bff !important;
@@ -112,7 +116,7 @@ def mostrar_modulo_tracking():
                 line-height: 1 !important;
                 padding: 0px !important;
             }
-            div[data-testid="stHorizontalBlock"] > div:nth-child(3) button:hover {
+            div[data-testid="stHorizontalBlock"] button[key*="rev_"]:hover {
                 background-color: #0069d9 !important;
             }
         </style>
