@@ -11,7 +11,7 @@ def mostrar_modulo_pedidos():
     st.header("🛒 Terminal de Pedidos La Exacta")
     db = conectar()
     
-    # --- FLUJO COUNTER / FAST FOOD: IDENTIFICACIÓN INICIAL EN FILA ---
+    # --- FLUJO COUNTER: IDENTIFICACIÓN INICIAL ---
     nombre_cliente = st.text_input(
         "👤 Nombre del Cliente:", 
         value=st.session_state.get('cliente_actual', ''),
@@ -34,6 +34,7 @@ def mostrar_modulo_pedidos():
         res = obtener_productos()
         
         if res.data:
+            # Separamos productos principales de los complementos/adicionales
             productos = [p for p in res.data if p.get('vigente', True) and p.get('categoria') != 'Complementos']
             complementos = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Complementos']
             
@@ -82,18 +83,20 @@ def mostrar_modulo_pedidos():
                 st.subheader("🛍️ Lista de Compra Actual")
                 total = 0.0
                 for i, item in enumerate(st.session_state.carrito):
-                    p_ad = sum(a['precio'] for a in item['adicionales'])
+                    # CORRECCIÓN: Sumar estrictamente el precio de cada adicional
+                    p_ad = sum(float(a['precio']) for a in item['adicionales'])
                     subtotal = (item['precio_base'] + p_ad) * item['cantidad']
                     total += subtotal
+                    
                     st.write(f"**{item['cantidad']}x {item['nombre']}** - S/. {subtotal:.2f}")
                     if item['adicionales']:
-                        st.caption(f"  └ Adicionales: {', '.join([a['nombre'] for a in item['adicionales']])}")
+                        st.caption(f"  └ Adicionales: {', '.join([f'{a['nombre']} (+S/. {a['precio']:.2f})' for a in item['adicionales']])}")
                     if st.button("Quitar 🗑️", key=f"del_{i}"):
                         st.session_state.carrito.pop(i)
                         st.rerun()
                 
                 st.divider()
-                st.metric("Total Acumulado", f"S/. {total:.2f}")
+                st.metric("Total Acumulado (Incluye Adicionales)", f"S/. {total:.2f}")
                 if st.button("💳 Ir al Cierre de Caja", use_container_width=True, type="primary"):
                     st.session_state.paso_pedido = 2
                     st.rerun()
@@ -105,9 +108,10 @@ def mostrar_modulo_pedidos():
             st.session_state.paso_pedido = 1
             st.rerun()
 
+        # CORRECCIÓN: Recalcular el total final sumando los complementos de manera estricta
         total_final = 0.0
         for item in st.session_state.carrito:
-            p_ad = sum(a['precio'] for a in item['adicionales'])
+            p_ad = sum(float(a['precio']) for a in item['adicionales'])
             total_final += (item['precio_base'] + p_ad) * item['cantidad']
 
         c_pago1, c_pago2 = st.columns(2)
@@ -154,10 +158,21 @@ def mostrar_modulo_pedidos():
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
-                    # 2. DETONADOR DE IMPRESIÓN ADANCE ADV-8011N (ESC/POS 300mm/s)
-                    # Aquí generamos el log de transmisión en crudo separado por comandos de corte automático \x1b\x69
-                    st.success(f"🎉 Pedido N° {id_pedido} guardado en la base de datos.")
+                    st.success(f"🎉 Pedido N° {id_pedido} guardado con éxito.")
                     
+                    # Generación limpia de los productos con sus complementos calculados para el Ticket 1
+                    lineas_ticket_productos = []
+                    for i in st.session_state.carrito:
+                        p_ad_item = sum(float(a['precio']) for a in i['adicionales'])
+                        costo_total_unitario = i['precio_base'] + p_ad_item
+                        sub_i = costo_total_unitario * i['cantidad']
+                        
+                        linea = f"{i['cantidad']}x {i['nombre']} - S/. {sub_i:.2f}"
+                        if i['adicionales']:
+                            linea += f"\n   └ Adic: {', '.join([f'{a['nombre']}' for a in i['adicionales']])}"
+                        lineas_ticket_productos.append(linea)
+
+                    # 2. TRANSMISIÓN DEL LOG DE TICKET A LA ADVANCE ADV-8011N
                     with st.spinner("Transmitiendo buffers a la ticketera Advance..."):
                         st.code(f"""
                         === ENVIANDO AL BUFFER DE LA IMPRESORA ADVANCE ADV-8011N ===
@@ -167,7 +182,7 @@ def mostrar_modulo_pedidos():
                         Pedido N°: {id_pedido}
                         Cliente: {st.session_state['cliente_actual']}
                         -----------------------------------------
-                        {chr(10).join([f"{i['cantidad']}x {i['nombre']} - S/. {i['precio_base']:.2f}" for i in st.session_state.carrito])}
+                        {chr(10).join(lineas_ticket_productos)}
                         -----------------------------------------
                         TOTAL PAGADO: S/. {total_final:.2f}
                         Método: {metodo} {f'(Op: {num_op})' if num_op else ''}
