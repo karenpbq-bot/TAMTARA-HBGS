@@ -12,7 +12,7 @@ from tracking import mostrar_modulo_tracking
 st.set_page_config(
     page_title="La Exacta",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
     page_icon=".streamlit/static/logo.png"
 )
 
