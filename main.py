@@ -11,7 +11,7 @@ from carta import mostrar_modulo_carta
 st.set_page_config(
     page_title="La Exacta",
     layout="centered", 
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
     page_icon=".streamlit/static/logo.png"
 )
 
