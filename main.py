@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="La Exacta",
     layout="centered", 
     initial_sidebar_state="collapsed", 
-    page_icon=ruta_logo_exacta if os.path.exists(ruta_logo_exacta) else "🪵"
+    page_icon=ruta_logo_exacta if os.path.exists(ruta_logo_exacta) else "Logo_La_Exacta_1.jpg"
 )
 
 # 2. Ejecutar el gestor de acceso
