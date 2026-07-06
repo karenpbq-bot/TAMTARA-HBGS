@@ -8,10 +8,10 @@ from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 from tracking import mostrar_modulo_tracking
 
-# 1. CONFIGURACIÓN DE PÁGINA NATIVA (Logo en la pestaña del navegador)
+# 1. CONFIGURACIÓN DE PÁGINA NATIVA (CORREGIDO: layout="wide" para activar los estilos del tracking)
 st.set_page_config(
     page_title="La Exacta",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
     page_icon=".streamlit/static/logo.png"
 )
