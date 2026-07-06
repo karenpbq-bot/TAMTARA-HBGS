@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from database import conectar, obtener_productos
+# CORRECCIÓN CRÍTICA: Importación de datetime para evitar el colapso del renderizado
+from datetime import datetime
 
 def mostrar_modulo_pedidos():
     if 'carrito' not in st.session_state:
@@ -147,10 +149,11 @@ def mostrar_modulo_pedidos():
                         "estado": "En cocina"
                     }
                     
+                    # Ejecución del Insert
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
-                    # FORMATEO DE CÓDIGO DDMM-CORRELATIVO PARA LOS TICKETS DE RECOJO
+                    # FORMATEO DE CÓDIGO DDMM-CORRELATIVO (Aquí es donde colapsaba el sistema)
                     prefijo_hoy = datetime.now().strftime("%d%m")
                     codigo_ticket_impreso = f"{prefijo_hoy}-{int(id_pedido):03d}"
                     
@@ -160,10 +163,11 @@ def mostrar_modulo_pedidos():
                     for i in st.session_state.carrito:
                         p_ad_item = sum(float(a['precio']) for a in i['adicionales'])
                         sub_i = (i['precio_base'] + p_ad_item) * i['cantidad']
-                        lineas_ticket_productos.append(f"{i['cantidad']}x {i['nombre']} - S/. {sub_i:.2f}")
-
-                    # Muestra de confirmación explícita de hardware en la interfaz
-                    st.success(f"🎉 Pedido N° {id_pedido} registrado exitosamente.")
+                        
+                        linea = f"{i['cantidad']}x {i['nombre']} - S/. {sub_i:.2f}"
+                        if i['adicionales']:
+                            linea += f"\n   └ Adic: {', '.join([f'{a['nombre']}' for a in i['adicionales']])}"
+                        lineas_ticket_productos.append(linea)
                     
                     # --- RUTEO AUTOMÁTICO DE IMPRESORAS ---
                     st.info("🖨️ [SISTEMA DE IMPRESIÓN] Enviando órdenes a las ticketeras Advance...")
@@ -172,7 +176,7 @@ def mostrar_modulo_pedidos():
                     >>> TRANSMITIENDO A IMPRESORA 1 (CAJA / CAJERO) <<<
                     [TICKET 1: COMPROBANTE DE COMPRA]
                     LA EXACTA HAMBURGUESERÍA
-                    Pedido N°: {id_pedido}
+                    Pedido N°: {codigo_ticket_impreso}
                     Cliente: {st.session_state['cliente_actual']}
                     -----------------------------------------
                     {chr(10).join(lineas_ticket_productos)}
@@ -182,14 +186,16 @@ def mostrar_modulo_pedidos():
                     
                     >>> TRANSMITIENDO A IMPRESORA 2 (DESPACHO Y COCINA) <<<
                     [TICKET 2: CONTROL LOGÍSTICO]
-                    Pedido N°: {id_pedido} | Cliente: {st.session_state['cliente_actual']}
+                    Pedido N°: {codigo_ticket_impreso} | Cliente: {st.session_state['cliente_actual']}
                     Despacho: {tipo_ent} | Ubicación: {destino}
                     \x1b\x69 <-- Papel Cortado en Despacho
                     
                     [TICKET 3: COMANDA DE PRODUCCIÓN]
                     🔥 NUEVA ORDEN - COCINA 🔥
-                    Pedido N°: {id_pedido}
-                    {chr(10).join([f"[{i['cantidad']}] {i['nombre']}" for i in st.session_state.carrito])}
+                    Pedido N°: {codigo_ticket_impreso}
+                    -----------------------------------------
+                    {chr(10).join([f"[{i['cantidad']}] {i['nombre']}{chr(10)+'   └ Adic: '+', '.join([a['nombre'] for a in i['adicionales']]) if i['adicionales'] else ''}" for i in st.session_state.carrito])}
+                    -----------------------------------------
                     \x1b\x69 <-- Papel Cortado en Cocina
                     
                     STATUS VEND: [OK] - Buffers vaciados con éxito.
