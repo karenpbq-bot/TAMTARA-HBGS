@@ -209,16 +209,22 @@ def mostrar_modulo_pedidos():
             st.session_state.paso_pedido = 1
             st.rerun()
 
-        total_final = 0.0
+        total_calculado = 0.0
         for item in st.session_state.carrito:
             p_ad = sum(float(a['precio']) for a in item['adicionales'])
-            total_final += (item['precio_base'] + p_ad) * item['cantidad']
+            total_calculado += (item['precio_base'] + p_ad) * item['cantidad']
 
         c_pago1, c_pago2 = st.columns(2)
         
         with c_pago1:
-            st.metric("Monto Total a Cobrar", f"S/. {total_final:.2f}")
-            metodo = st.radio("Forma de Pago Registrada:", ["Efectivo", "Yape / Plin", "Tarjeta"])
+            # Checkbox para marcar si el pedido es cortesía
+            es_cortesia = st.checkbox("🎁 Marcar como Cortesía")
+            
+            if es_cortesia:
+                metodo = "Cortesía"
+                st.info("ℹ️ Este pedido es una cortesía. El monto se registrará para control, pero no sumará en las ventas cobradas.")
+            else:
+                metodo = st.radio("Forma de Pago Registrada:", ["Efectivo", "Yape / Plin", "Tarjeta"])
             
             num_op = None
             monto_rec = None
@@ -226,9 +232,9 @@ def mostrar_modulo_pedidos():
             
             if metodo in ["Yape / Plin", "Tarjeta"]:
                 num_op = st.text_input("N° de Operación (Obligatorio):", placeholder="Ej: 198273")
-            else:
-                monto_rec = st.number_input("Monto en efectivo recibido:", min_value=float(total_final), step=1.0)
-                vuelto = monto_rec - total_final
+            elif metodo == "Efectivo":
+                monto_rec = st.number_input("Monto en efectivo recibido:", min_value=float(total_calculado), step=1.0)
+                vuelto = monto_rec - total_calculado
                 st.subheader(f"💵 Vuelto Exacto: S/. {vuelto:.2f}")
 
         with c_pago2:
@@ -245,12 +251,14 @@ def mostrar_modulo_pedidos():
                         "destino_entrega": destino,
                         "telefono_contacto": telefono,
                         "items": st.session_state.carrito,
-                        "metodo_pago": metodo,
-                        "monto_total": total_final,
+                        "metodo_pago": metodo if not es_cortesia else "Cortesía",
+                        "monto_total": total_calculado,  # Registramos el valor real de la producción
                         "num_operacion": num_op,
                         "monto_recibido": monto_rec,
                         "vuelto": vuelto,
-                        "estado": "En cocina"
+                        "estado": "En cocina",
+                        "pedido_cerrado": "No",
+                        "cortesia": "Sí" if es_cortesia else "No"  # Guardamos la nueva columna en Supabase
                     }
                     
                     # Ejecución del Insert
@@ -263,7 +271,7 @@ def mostrar_modulo_pedidos():
                     
                     st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado en base de datos.")
                     
-                    # --- REEMPLAZO CRÍTICO: EJECUCIÓN Y CONTROL DE IMPRESIÓN REAL ---
+                    # Ejecución de Impresión
                     with st.spinner("Transmitiendo datos a ticketeras Advance..."):
                         procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
                     
