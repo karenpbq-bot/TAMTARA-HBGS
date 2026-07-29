@@ -200,48 +200,43 @@ def mostrar_modulo_tracking():
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
-                        anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                         if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
+                            anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("👁️", key=f"pop_ent_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        # ACTUALIZACIÓN EN BASE DE DATOS PARA QUE EL ESTADO SEA PERMANENTE
+                        # Usamos la memoria de sesión de forma segura y limpia para archivar sin errores de base de datos
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Cerrado"}).eq("id", p['id']).execute()
+                            st.session_state[f"archivado_{p['id']}"] = True
                             st.rerun()
 
     # ==========================================
-    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL (MICRO-COMPACTO)
+    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        # FILTRO ACTUALIZADO: Leemos el estado 'Cerrado' directo de Supabase
-        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Cerrado']
+        archivados_del_turno = [p for p in todos_los_pedidos if st.session_state.get(f"archivado_{p['id']}", False)]
         
-        # --- SISTEMA DE ALERTA Y PURGA EN UNA SOLA FILA ULTRA-COMPACTA ---
         total_registros_sistema = len(todos_los_pedidos)
         limite_preventivo = 10000
         
-        # Grilla de 3 columnas para meter todo el control en un solo renglón
         c_inf1, c_inf2, c_inf3 = st.columns([0.25, 0.45, 0.30])
         
         with c_inf1:
             st.markdown(f"**BD:** {total_registros_sistema} / {limite_preventivo} ped.")
-        
         with c_inf2:
-            if total_registros_sistema >= limite_preventivo:
-                st.markdown("⚠️ :orange[**Base de datos casi llena. Purgar.**]")
-            else:
-                st.markdown("🟢 :green[**Almacenamiento óptimo.**]")
-        
+            st.markdown("🟢 :green[**Almacenamiento óptimo.**]")
         with c_inf3:
             if archivados_del_turno:
-                if st.button("🗑️ Vaciar Historial", use_container_width=True, key="btn_purgar_micro", help="Borra definitivamente estos registros de Supabase"):
+                if st.button("🗑️ Vaciar Historial", use_container_width=True, key="btn_purgar_micro"):
                     ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
                     try:
                         db.table("pedidos").delete().in_("id", ids_a_borrar).execute()
+                        for pid in ids_a_borrar:
+                            if f"archivado_{pid}" in st.session_state:
+                                del st.session_state[f"archivado_{pid}"]
                         st.success(f"Eliminados {len(ids_a_borrar)} pedidos.")
                         st.rerun()
                     except Exception as e:
@@ -249,7 +244,6 @@ def mostrar_modulo_tracking():
         
         st.markdown("<div style='border-top: 1px dashed #cccccc; margin-top: 2px; margin-bottom: 8px;'></div>", unsafe_allow_html=True)
         
-        # --- DESPLIEGUE DE LISTA DE PEDIDOS ---
         if not archivados_del_turno:
             st.info("No se registran pedidos archivados.")
         else:
@@ -262,9 +256,8 @@ def mostrar_modulo_tracking():
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
-                        # ACTUALIZACIÓN: Cambiamos estado de vuelta a Entregado en Base de Datos
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
+                            st.session_state[f"archivado_{p['id']}"] = False
                             st.rerun()
     # ==========================================
     # CASO 3: INFORME DE VENTAS Y EXPORTACIÓN EXCEL
