@@ -200,24 +200,25 @@ def mostrar_modulo_tracking():
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
+                        anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                         if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
-                            anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
                         if st.button("👁️", key=f"pop_ent_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        # Usamos la memoria de sesión de forma segura y limpia para archivar sin errores de base de datos
+                        # ACTUALIZACIÓN DIRECTA EN SUPABASE PARA QUE DESAPAREZCA Y SEA PERMANENTE
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
-                            st.session_state[f"archivado_{p['id']}"] = True
+                            db.table("pedidos").update({"estado": "Cerrado"}).eq("id", p['id']).execute()
                             st.rerun()
 
     # ==========================================
-    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
+    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL (MICRO-COMPACTO)
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        archivados_del_turno = [p for p in todos_los_pedidos if st.session_state.get(f"archivado_{p['id']}", False)]
+        # FILTRO DIRECTO DE BASE DE DATOS
+        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Cerrado']
         
         total_registros_sistema = len(todos_los_pedidos)
         limite_preventivo = 10000
@@ -230,13 +231,10 @@ def mostrar_modulo_tracking():
             st.markdown("🟢 :green[**Almacenamiento óptimo.**]")
         with c_inf3:
             if archivados_del_turno:
-                if st.button("🗑️ Vaciar Historial", use_container_width=True, key="btn_purgar_micro"):
+                if st.button("🗑️ Vaciar Historial", use_container_width=True, key="btn_purgar_micro", help="Borra definitivamente estos registros de Supabase"):
                     ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
                     try:
                         db.table("pedidos").delete().in_("id", ids_a_borrar).execute()
-                        for pid in ids_a_borrar:
-                            if f"archivado_{pid}" in st.session_state:
-                                del st.session_state[f"archivado_{pid}"]
                         st.success(f"Eliminados {len(ids_a_borrar)} pedidos.")
                         st.rerun()
                     except Exception as e:
@@ -245,7 +243,7 @@ def mostrar_modulo_tracking():
         st.markdown("<div style='border-top: 1px dashed #cccccc; margin-top: 2px; margin-bottom: 8px;'></div>", unsafe_allow_html=True)
         
         if not archivados_del_turno:
-            st.info("No se registran pedidos archivados.")
+            st.info("No se registran pedidos cerrados.")
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
@@ -257,7 +255,7 @@ def mostrar_modulo_tracking():
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
-                            st.session_state[f"archivado_{p['id']}"] = False
+                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
     # ==========================================
     # CASO 3: INFORME DE VENTAS Y EXPORTACIÓN EXCEL
