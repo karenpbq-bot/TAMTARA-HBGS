@@ -321,6 +321,22 @@ def mostrar_modulo_pedidos():
                 if not es_cortesia and metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
                     st.error("⚠️ Registre el número de operación bancaria.")
                 else:
+                    # 1. Determinamos la fecha de hoy para el conteo diario
+                    fecha_hoy_str = datetime.now().strftime("%Y-%m-%d")
+                    prefijo_hoy = datetime.now().strftime("%d%m")
+                    
+                    try:
+                        # 2. Consultamos cuántos pedidos ya existen creados hoy en la base de datos
+                        res_conteo = db.table("pedidos").select("id", count="exact").gte("created_at", f"{fecha_hoy_str}T00:00:00").execute()
+                        cantidad_hoy = len(res_conteo.data) if res_conteo.data else 0
+                        siguiente_correlativo = cantidad_hoy + 1
+                    except Exception:
+                        siguiente_correlativo = 1
+                        
+                    # 3. Construimos el código único diario (Ej: 2907-001)
+                    codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
+                    
+                    # 4. Armamos el payload incluyendo el código exacto generado
                     pedido_payload = {
                         "cliente": st.session_state['cliente_actual'],
                         "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
@@ -334,37 +350,20 @@ def mostrar_modulo_pedidos():
                         "vuelto": vuelto,
                         "estado": "En cocina",
                         "pedido_cerrado": "No",
-                        "cortesia": "Sí" if es_cortesia else "No"
+                        "cortesia": "Sí" if es_cortesia else "No",
+                        "codigo_exacta": codigo_ticket_impreso
                     }
                     
-                    # 1. Insertamos primero para que Supabase nos devuelva el ID y la fecha real de creación (created_at)
+                    # 5. Insertamos directamente el pedido con su código correlativo diario definitivo
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
+                    id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
-                    if res_db.data:
-                        id_pedido = res_db.data[0]['id']
-                        created_at_str = res_db.data[0].get('created_at', '')
-                        
-                        # 2. Generamos el código exacto respetando la fecha de creación en la BD
-                        if created_at_str and len(created_at_str) >= 10:
-                            try:
-                                dt_creacion = datetime.strptime(created_at_str[:10], "%Y-%m-%d")
-                                prefijo_fecha = dt_creacion.strftime("%d%m")
-                            except:
-                                prefijo_fecha = datetime.now().strftime("%d%m")
-                        else:
-                            prefijo_fecha = datetime.now().strftime("%d%m")
-                            
-                        codigo_ticket_impreso = f"{prefijo_fecha}-{int(id_pedido):03d}"
-                        
-                        # 3. Guardamos el código exacto en la nueva columna de Supabase
-                        db.table("pedidos").update({"codigo_exacta": codigo_ticket_impreso}).eq("id", id_pedido).execute()
-                        
-                        st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado en base de datos.")
-                        
-                        with st.spinner("Transmitiendo datos a ticketeras Advance..."):
-                            procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
-                        
-                        st.balloons()
-                        st.session_state.carrito = []
-                        st.session_state.paso_pedido = 1
-                        st.rerun()
+                    st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado en base de datos.")
+                    
+                    with st.spinner("Transmitiendo datos a ticketeras Advance..."):
+                        procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
+                    
+                    st.balloons()
+                    st.session_state.carrito = []
+                    st.session_state.paso_pedido = 1
+                    st.rerun()
