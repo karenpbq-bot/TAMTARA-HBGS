@@ -29,8 +29,9 @@ def mostrar_modulo_carta():
             c1, c2 = st.columns([2, 1])
             nombre = c1.text_input("Nombre")
             precio = c2.number_input("Precio (S/.)", min_value=0.0, step=0.5)
+            codigo_corto = st.text_input("Código Corto / Abreviatura (Ej: BUR, CHC, PAP):", max_chars=10).upper()
             desc = st.text_area("Descripción")
-            cat = st.selectbox("Categoría", ["Principal", "Bebidas", "Complementos"])
+            cat = st.selectbox("Categoría", ["Principal", "Bebidas", "Ad Gratis", "Ad Porción"])
             foto = st.file_uploader("Foto (Cualquier formato)", type=None)
             
             if st.form_submit_button("Guardar Producto"):
@@ -44,8 +45,12 @@ def mostrar_modulo_carta():
                         url_foto = subir_imagen_producto(buf, nom_arc)
                 
                 db.table("productos").insert({
-                    "nombre": nombre, "descripcion": desc, "precio_venta": precio, 
-                    "categoria": cat, "imagen_url": url_foto
+                    "nombre": nombre, 
+                    "descripcion": desc, 
+                    "precio_venta": precio, 
+                    "categoria": cat, 
+                    "imagen_url": url_foto,
+                    "codigo_corto": codigo_corto  <-- # <--- AQUÍ DEBES AGREGAR ESTA LÍNEA
                 }).execute()
                 st.cache_data.clear()
                 st.rerun()
