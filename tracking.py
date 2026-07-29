@@ -88,7 +88,7 @@ def mostrar_modulo_tracking():
     with c_pestana:
         navegacion = st.radio(
             "Seleccione Vista:",
-            ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados"],
+            ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
             horizontal=True,
             label_visibility="collapsed"
         )
@@ -256,3 +256,96 @@ def mostrar_modulo_tracking():
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
                             st.session_state[f"archivado_{p['id']}"] = False
                             st.rerun()
+
+    # ==========================================
+    # CASO 3: INFORME DE VENTAS Y EXPORTACIÓN EXCEL
+    # ==========================================
+    elif navegacion == "📈 Informe de Ventas":
+        st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Panel de Análisis Financiero y Exportación</p>', unsafe_allow_html=True)
+        
+        with st.container(border=True):
+            # 1. Filtro de Rango de Fechas
+            c_f1, c_f2, _ = st.columns([1, 1, 2])
+            fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY")
+            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY")
+
+            # 2. Lógica de Filtrado por Fecha y Estado (Solo Entregados / Cobrados)
+            pedidos_rango = []
+            for p in todos_los_pedidos:
+                # Nos aseguramos de contar solo lo que realmente se vendió (Entregado)
+                if p.get('estado') == 'Entregado':
+                    fecha_str = str(p.get('created_at', ''))
+                    if len(fecha_str) >= 10:
+                        try:
+                            # Extraemos solo el YYYY-MM-DD de Supabase (ej: 2026-07-28)
+                            fecha_pedido = datetime.strptime(fecha_str[:10], "%Y-%m-%d").date()
+                            if fecha_inicio <= fecha_pedido <= fecha_fin:
+                                pedidos_rango.append(p)
+                        except:
+                            continue
+
+            # 3. Cálculo de KPIs Financieros
+            if pedidos_rango:
+                total_ingresos = sum(float(p.get('monto_total', 0)) for p in pedidos_rango)
+                total_pedidos_rango = len(pedidos_rango)
+                ticket_promedio = total_ingresos / total_pedidos_rango if total_pedidos_rango > 0 else 0
+                
+                # Desglose por Método de Pago
+                ingresos_efectivo = sum(float(p['monto_total']) for p in pedidos_rango if p.get('metodo_pago') == 'Efectivo')
+                ingresos_yape = sum(float(p['monto_total']) for p in pedidos_rango if p.get('metodo_pago') == 'Yape / Plin')
+                ingresos_tarjeta = sum(float(p['monto_total']) for p in pedidos_rango if p.get('metodo_pago') == 'Tarjeta')
+
+                st.divider()
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("💰 Total Ingresos", f"S/. {total_ingresos:.2f}")
+                m2.metric("📦 Cantidad de Pedidos", f"{total_pedidos_rango}")
+                m3.metric("🧾 Ticket Promedio", f"S/. {ticket_promedio:.2f}")
+                m4.metric("💳 Yape/Plin + Tarjeta", f"S/. {(ingresos_yape + ingresos_tarjeta):.2f}")
+                
+                st.caption(f"**Desglose:** Efectivo: S/. {ingresos_efectivo:.2f} | Yape/Plin: S/. {ingresos_yape:.2f} | Tarjeta: S/. {ingresos_tarjeta:.2f}")
+                
+                # 4. Preparación y Generación del Archivo Excel
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Aplanamos los datos para que sean legibles en Excel
+                datos_excel = []
+                for p in pedidos_rango:
+                    fecha_limpia = p['created_at'][:10] if isinstance(p.get('created_at'), str) else ""
+                    hora_limpia = p['created_at'][11:19] if isinstance(p.get('created_at'), str) and len(p['created_at']) > 15 else ""
+                    
+                    # Extraer un resumen rápido de los items consumidos
+                    resumen_items = " | ".join([f"{item['cantidad']}x {item['nombre']}" for item in p.get('items', [])])
+                    
+                    datos_excel.append({
+                        "ID Base Datos": p['id'],
+                        "Código Pedido": p['codigo_exacta'],
+                        "Fecha": fecha_limpia,
+                        "Hora": hora_limpia,
+                        "Cliente": p.get('cliente', ''),
+                        "Canal": p.get('tipo_entrega', ''),
+                        "Monto Total (S/.)": float(p.get('monto_total', 0)),
+                        "Método de Pago": p.get('metodo_pago', ''),
+                        "N° Operación": p.get('num_operacion', ''),
+                        "Resumen de Compra": resumen_items
+                    })
+                
+                df_export = pd.DataFrame(datos_excel)
+                
+                # Proceso de exportación a BytesIO
+                import io
+                buffer_excel = io.BytesIO()
+                with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
+                    df_export.to_excel(writer, index=False, sheet_name="Ventas")
+                
+                # Botón de Descarga
+                st.download_button(
+                    label="📥 Descargar Informe Completo en Excel",
+                    data=buffer_excel.getvalue(),
+                    file_name=f"Informe_Ventas_La_Exacta_{fecha_inicio}_al_{fecha_fin}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+            else:
+                st.divider()
+                st.info(f"No se registraron ventas en estado 'Entregado' para el rango del {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}.")
+                
