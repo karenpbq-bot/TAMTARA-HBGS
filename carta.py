@@ -80,7 +80,7 @@ def mostrar_modulo_carta():
                         enom = st.text_input("Nombre", value=p['nombre'])
                         epre = st.number_input("Precio", value=float(p['precio_venta']))
                         edesc = st.text_area("Descripción", value=p['descripcion'])
-                        ecat = st.selectbox("Categoría", ["Hamburguesas", "Bebidas", "Complementos"], 
+                        ecat = st.selectbox("Categoría", ["Principal", "Bebidas", "Complementos"], 
                                           index=["Hamburguesas", "Bebidas", "Complementos"].index(p['categoria']))
                         efoto = st.file_uploader("Cambiar foto", type=None)
                         
