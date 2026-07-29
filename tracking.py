@@ -106,9 +106,19 @@ def mostrar_modulo_tracking():
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
         
-        prefijo_hoy = datetime.now().strftime("%d%m")
+        # Corrección: Extraer el prefijo de fecha a partir de la fecha real de creación (created_at)
         for p in todos_los_pedidos:
-            p['codigo_exacta'] = f"{prefijo_hoy}-{int(p['id']):03d}"
+            created_at_str = p.get('created_at')
+            if created_at_str and len(created_at_str) >= 10:
+                try:
+                    dt_creacion = datetime.strptime(created_at_str[:10], "%Y-%m-%d")
+                    prefijo_fecha = dt_creacion.strftime("%d%m")
+                except:
+                    prefijo_fecha = datetime.now().strftime("%d%m")
+            else:
+                prefijo_fecha = datetime.now().strftime("%d%m")
+                
+            p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
             
     except Exception as e:
         st.error(f"Error al conectar con la base de datos: {e}")
