@@ -25,7 +25,7 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CSS: BOTONES TOTALMENTE LIBRES DE RECUADROS Y MARCOS ---
+    # --- CSS AVANZADO: ELIMINACIÓN RADICAL DE MARCOS Y CONTENEDORES DE BOTONES ---
     st.markdown("""
         <style>
             div.block-container {
@@ -60,21 +60,42 @@ def mostrar_modulo_tracking():
                 color: #28a745 !important;
                 font-weight: bold !important;
             }
-            /* CERO RECUADROS: Botones limpios basados únicamente en el icono/texto */
-            div.stButton > button {
+            /* ANULACIÓN TOTAL DE MARCOS NATIVOS EN BOTONES */
+            [data-testid="stButton"] {
+                width: 100% !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            [data-testid="stButton"] button {
+                background: transparent !important;
                 background-color: transparent !important;
                 border: none !important;
+                border-color: transparent !important;
                 box-shadow: none !important;
-                padding: 2px 4px !important;
-                font-size: 1.1rem !important;
+                outline: none !important;
+                padding: 0px !important;
+                margin: 0px !important;
+                font-size: 1.15rem !important;
                 font-weight: bold !important;
                 color: #495057 !important;
-                min-height: unset !important;
+                min-height: 32px !important;
+                max-height: 32px !important;
+                width: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
             }
-            div.stButton > button:hover {
+            [data-testid="stButton"] button:hover {
                 background-color: #e9ecef !important;
                 color: #000000 !important;
                 border-radius: 4px !important;
+                border: none !important;
+            }
+            [data-testid="stButton"] button:active, [data-testid="stButton"] button:focus {
+                border: none !important;
+                outline: none !important;
+                box-shadow: none !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -150,35 +171,44 @@ def mostrar_modulo_tracking():
 
         col1, col2, col3, col4 = st.columns(4)
 
-        # Función que muestra exclusivamente códigos de Principales y Bebidas (sin adicionales)
-        def obtener_resumen_principales(p):
-            codigos = []
+        # Función con jerarquía estricta: Principales primero, bebidas después
+        def obtener_resumen_jerarquizado(p):
+            principales = []
+            bebidas = []
             for item in p.get('items', []):
                 p_code = item.get('codigo', '').strip()
                 if not p_code:
                     p_code = item['nombre'][:3].upper()
-                codigos.append(p_code)
-            return ", ".join(codigos)
+                
+                nombre_inf = item['nombre'].lower()
+                if any(b in nombre_inf for b in ['cola', 'fanta', 'sprite', 'agua', 'energina', 'chicha', 'inka', 'bebida', 'jugo', 'cerveza', 'limonada']):
+                    bebidas.append(p_code)
+                else:
+                    principales.append(p_code)
+            
+            # Orden estricto garantizado: Principales antes que Bebidas
+            ordenados = principales + bebidas
+            return ", ".join(ordenados)
 
         # 1. COLUMNA: EN COCINA
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
-                    detalle_str = obtener_resumen_principales(p)
+                    cx1, cx2, cx3, cx4 = st.columns([0.64, 0.12, 0.12, 0.12])
+                    detalle_str = obtener_resumen_jerarquizado(p)
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
-                        if st.button("📄", key=f"pop_coc_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
+                        if st.button("📄", key=f"pop_coc_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx3:
-                        if st.button("🗑️", key=f"del_coc_{p['id']}", use_container_width=True, help="Eliminar por incidencia"):
+                        if st.button("🗑️", key=f"del_coc_{p['id']}", use_container_width=True, help="Eliminar pedido"):
                             db.table("pedidos").delete().eq("id", p['id']).execute()
                             st.rerun()
                     with cx4:
-                        if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True, help="Avanzar etapa"):
+                        if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True, help="Avanzar"):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -186,8 +216,8 @@ def mostrar_modulo_tracking():
         with col2:
             for p in listos:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
-                    detalle_str = obtener_resumen_principales(p)
+                    cx1, cx2, cx3, cx4 = st.columns([0.64, 0.12, 0.12, 0.12])
+                    detalle_str = obtener_resumen_jerarquizado(p)
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
@@ -197,11 +227,11 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("📄", key=f"pop_bar_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
+                        if st.button("📄", key=f"pop_bar_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
                         siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
-                        if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True, help="Avanzar etapa"):
+                        if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True, help="Avanzar"):
                             db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -209,8 +239,8 @@ def mostrar_modulo_tracking():
         with col3:
             for p in despachados:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
-                    detalle_str = obtener_resumen_principales(p)
+                    cx1, cx2, cx3, cx4 = st.columns([0.64, 0.12, 0.12, 0.12])
+                    detalle_str = obtener_resumen_jerarquizado(p)
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
@@ -220,10 +250,10 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("📄", key=f"pop_cam_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
+                        if st.button("📄", key=f"pop_cam_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True, help="Avanzar etapa"):
+                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True, help="Avanzar"):
                             db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -231,8 +261,8 @@ def mostrar_modulo_tracking():
         with col4:
             for p in entregados:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
-                    detalle_str = obtener_resumen_principales(p)
+                    cx1, cx2, cx3, cx4 = st.columns([0.64, 0.12, 0.12, 0.12])
+                    detalle_str = obtener_resumen_jerarquizado(p)
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
@@ -243,10 +273,10 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("📄", key=f"pop_ent_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
+                        if st.button("📄", key=f"pop_ent_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar pedido"):
+                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar"):
                             db.table("pedidos").update({"pedido_cerrado": "Sí"}).eq("id", p['id']).execute()
                             st.rerun()
 
