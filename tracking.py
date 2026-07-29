@@ -25,7 +25,7 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CSS PROFESIONAL: BOTONES LIMPIOS Y ACCIONES ALINEADAS ---
+    # --- CSS: BOTONES TOTALMENTE LIBRES DE RECUADROS Y MARCOS ---
     st.markdown("""
         <style>
             div.block-container {
@@ -60,21 +60,21 @@ def mostrar_modulo_tracking():
                 color: #28a745 !important;
                 font-weight: bold !important;
             }
-            /* ESTILO LIMPIO PARA ACCIONES EN TARJETAS */
+            /* CERO RECUADROS: Botones limpios basados únicamente en el icono/texto */
             div.stButton > button {
-                background-color: #f8f9fa !important;
-                border: 1px solid #dee2e6 !important;
-                border-radius: 4px !important;
-                color: #343a40 !important;
+                background-color: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 2px 4px !important;
+                font-size: 1.1rem !important;
                 font-weight: bold !important;
-                padding: 2px 0px !important;
-                min-height: 32px !important;
-                max-height: 32px !important;
+                color: #495057 !important;
+                min-height: unset !important;
             }
             div.stButton > button:hover {
                 background-color: #e9ecef !important;
-                border-color: #adb5bd !important;
                 color: #000000 !important;
+                border-radius: 4px !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -150,44 +150,35 @@ def mostrar_modulo_tracking():
 
         col1, col2, col3, col4 = st.columns(4)
 
-        # Función optimizada: Muestra solo códigos de productos reales sin espacios vacíos
-        def obtener_resumen_codigos(p):
+        # Función que muestra exclusivamente códigos de Principales y Bebidas (sin adicionales)
+        def obtener_resumen_principales(p):
             codigos = []
             for item in p.get('items', []):
                 p_code = item.get('codigo', '').strip()
                 if not p_code:
                     p_code = item['nombre'][:3].upper()
                 codigos.append(p_code)
-                
-                # Opcional: si deseas incluir solo adicionales con nombre válido
-                for ad in item.get('adicionales', []):
-                    ad_name = ad.get('nombre', '').strip()
-                    if ad_name:
-                        ad_code = ad.get('codigo', '').strip()
-                        if not ad_code:
-                            ad_code = ad_name[:3].upper()
-                        codigos.append(ad_code)
-            return " • ".join(codigos)
+            return ", ".join(codigos)
 
         # 1. COLUMNA: EN COCINA
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.52, 0.16, 0.16, 0.16])
-                    detalle_str = obtener_resumen_codigos(p)
-                    detalle_html = f'<br><small style="color: #495057; font-weight: 600;">📦 {detalle_str}</small>' if detalle_str else ''
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_principales(p)
+                    detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
-                        if st.button("👁️", key=f"pop_coc_{p['id']}", use_container_width=True):
+                        if st.button("📄", key=f"pop_coc_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx3:
                         if st.button("🗑️", key=f"del_coc_{p['id']}", use_container_width=True, help="Eliminar por incidencia"):
                             db.table("pedidos").delete().eq("id", p['id']).execute()
                             st.rerun()
                     with cx4:
-                        if st.button("➔", key=f"fwd_coc_{p['id']}", use_container_width=True, help="Avanzar etapa"):
+                        if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True, help="Avanzar etapa"):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -195,22 +186,22 @@ def mostrar_modulo_tracking():
         with col2:
             for p in listos:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.52, 0.16, 0.16, 0.16])
-                    detalle_str = obtener_resumen_codigos(p)
-                    detalle_html = f'<br><small style="color: #495057; font-weight: 600;">📦 {detalle_str}</small>' if detalle_str else ''
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_principales(p)
+                    detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
-                        if st.button("⬅", key=f"rev_bar_{p['id']}", use_container_width=True, help="Retroceder"):
+                        if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True, help="Retroceder"):
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("👁️", key=f"pop_bar_{p['id']}", use_container_width=True):
+                        if st.button("📄", key=f"pop_bar_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
                         siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
-                        if st.button("➔", key=f"fwd_bar_{p['id']}", use_container_width=True, help="Avanzar etapa"):
+                        if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True, help="Avanzar etapa"):
                             db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -218,21 +209,21 @@ def mostrar_modulo_tracking():
         with col3:
             for p in despachados:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.52, 0.16, 0.16, 0.16])
-                    detalle_str = obtener_resumen_codigos(p)
-                    detalle_html = f'<br><small style="color: #495057; font-weight: 600;">📦 {detalle_str}</small>' if detalle_str else ''
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_principales(p)
+                    detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
-                        if st.button("⬅", key=f"rev_cam_{p['id']}", use_container_width=True, help="Retroceder"):
+                        if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True, help="Retroceder"):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("👁️", key=f"pop_cam_{p['id']}", use_container_width=True):
+                        if st.button("📄", key=f"pop_cam_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        if st.button("➔", key=f"fwd_cam_{p['id']}", use_container_width=True, help="Avanzar etapa"):
+                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True, help="Avanzar etapa"):
                             db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -240,22 +231,22 @@ def mostrar_modulo_tracking():
         with col4:
             for p in entregados:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.52, 0.16, 0.16, 0.16])
-                    detalle_str = obtener_resumen_codigos(p)
-                    detalle_html = f'<br><small style="color: #495057; font-weight: 600;">📦 {detalle_str}</small>' if detalle_str else ''
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_principales(p)
+                    detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
                         anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
-                        if st.button("⬅", key=f"rev_ent_{p['id']}", use_container_width=True, help="Retroceder"):
+                        if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True, help="Retroceder"):
                             db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("👁️", key=f"pop_ent_{p['id']}", use_container_width=True):
+                        if st.button("📄", key=f"pop_ent_{p['id']}", use_container_width=True, help="Ver detalle de pedido"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        if st.button("➔", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar pedido"):
+                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True, help="Archivar pedido"):
                             db.table("pedidos").update({"pedido_cerrado": "Sí"}).eq("id", p['id']).execute()
                             st.rerun()
 
@@ -292,14 +283,14 @@ def mostrar_modulo_tracking():
                         tag_cortesia = " 🎁 [CORTESÍA]" if p.get('cortesia') == 'Sí' else ""
                         st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]}{tag_cortesia} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
                     with ch2:
-                        if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
+                        if st.button("📄", key=f"pop_hist_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
-                        if st.button("⬅", key=f"rev_hist_{p['id']}", use_container_width=True):
+                        if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True, help="Retroceder"):
                             db.table("pedidos").update({"pedido_cerrado": "No"}).eq("id", p['id']).execute()
                             st.rerun()
                     with ch4:
-                        if st.button("🗑️", key=f"del_hist_{p['id']}", use_container_width=True):
+                        if st.button("🗑️", key=f"del_hist_{p['id']}", use_container_width=True, help="Eliminar"):
                             db.table("pedidos").delete().eq("id", p['id']).execute()
                             st.rerun()
 
@@ -311,7 +302,7 @@ def mostrar_modulo_tracking():
         with st.container(border=True):
             c_f1, c_f2, _ = st.columns([1, 1, 2])
             fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY")
-            fecha_fin = c_f2.date_input("Fecha de POS:", value=datetime.now().date(), format="DD/MM/YYYY")
+            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY")
 
             pedidos_rango = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado']
             if pedidos_rango:
