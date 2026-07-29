@@ -321,14 +321,13 @@ def mostrar_modulo_pedidos():
                 if not es_cortesia and metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
                     st.error("⚠️ Registre el número de operación bancaria.")
                 else:
-                    # 1. Determinamos la fecha de hoy para el conteo diario
-                    fecha_hoy_str = datetime.now().strftime("%Y-%m-%d")
+                    # 1. Obtenemos el prefijo del día actual (Ej: "2907")
                     prefijo_hoy = datetime.now().strftime("%d%m")
                     
                     try:
-                        # 2. Consultamos cuántos pedidos ya existen creados hoy en la base de datos
-                        res_conteo = db.table("pedidos").select("id", count="exact").gte("created_at", f"{fecha_hoy_str}T00:00:00").execute()
-                        cantidad_hoy = len(res_conteo.data) if res_conteo.data else 0
+                        # 2. Consultamos cuántos pedidos ya existen hoy buscando por el prefijo en la base de datos
+                        res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
+                        cantidad_hoy = len(res_hoy.data) if res_hoy.data else 0
                         siguiente_correlativo = cantidad_hoy + 1
                     except Exception:
                         siguiente_correlativo = 1
@@ -336,7 +335,7 @@ def mostrar_modulo_pedidos():
                     # 3. Construimos el código único diario (Ej: 2907-001)
                     codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
                     
-                    # 4. Armamos el payload incluyendo el código exacto generado
+                    # 4. Armamos el payload con el código exacto definitivo
                     pedido_payload = {
                         "cliente": st.session_state['cliente_actual'],
                         "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
@@ -354,7 +353,7 @@ def mostrar_modulo_pedidos():
                         "codigo_exacta": codigo_ticket_impreso
                     }
                     
-                    # 5. Insertamos directamente el pedido con su código correlativo diario definitivo
+                    # 5. Insertamos el pedido en Supabase
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
