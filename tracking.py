@@ -83,15 +83,20 @@ def mostrar_modulo_tracking():
         st.info("No hay registros de pedidos en el sistema actualmente.")
         return
 
-    # --- FILA 1: SELECTOR DE VISTAS (Ancho libre para evitar cortes) ---
-    navegacion = st.radio(
-        "Seleccione Vista:",
-        ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+    # --- FILA 1: SELECTOR DE VISTAS Y BOTÓN DE ACTUALIZACIÓN EN TIEMPO REAL ---
+    c_head1, c_head2 = st.columns([0.8, 0.2])
+    with c_head1:
+        navegacion = st.radio(
+            "Seleccione Vista:",
+            ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+    with c_head2:
+        if st.button("🔄 Actualizar", use_container_width=True, help="Refresca el tablero en tiempo real"):
+            st.rerun()
         
-    # --- FILA 2: FILTRO UNIVERSAL (Abarca el 100% del ancho del tablero) ---
+    # --- FILA 2: FILTRO UNIVERSAL ---
     busqueda = st.text_input(
         "", 
         placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
@@ -100,7 +105,6 @@ def mostrar_modulo_tracking():
 
     st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    # Filtrado lógico inmediato
     if busqueda:
         pedidos_filtrados = [
             p for p in todos_los_pedidos 
@@ -120,7 +124,6 @@ def mostrar_modulo_tracking():
         despachados = [p for p in pedidos_tablero if p.get('estado') == 'Despachado']
         entregados = [p for p in pedidos_tablero if p.get('estado') == 'Entregado']
 
-        # Títulos de Carriles
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         with t_col1:
             st.markdown('<p class="titulo-carril">👨‍🍳 En Cocina</p>', unsafe_allow_html=True)
@@ -137,17 +140,21 @@ def mostrar_modulo_tracking():
 
         col1, col2, col3, col4 = st.columns(4)
 
-        # 1. COLUMNA: EN COCINA
+        # 1. COLUMNA: EN COCINA (Con botón de eliminación por incidencia)
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.60, 0.20, 0.20])
+                    cx1, cx2, cx3, cx4 = st.columns([0.45, 0.15, 0.15, 0.25])
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("👁️", key=f"pop_coc_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with cx3:
+                        if st.button("🗑️", key=f"del_coc_{p['id']}", use_container_width=True, help="Eliminar por incidencia"):
+                            db.table("pedidos").delete().eq("id", p['id']).execute()
+                            st.rerun()
+                    with cx4:
                         if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
