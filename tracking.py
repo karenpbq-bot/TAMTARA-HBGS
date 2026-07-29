@@ -113,7 +113,8 @@ def mostrar_modulo_tracking():
     # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
     # ==========================================
     if navegacion == "🔥 Pedidos en Proceso":
-        pedidos_tablero = [p for p in pedidos_filtrados if st.session_state.get(f"archivado_{p['id']}", False) != True]
+        # FILTRO ACTUALIZADO: Ignoramos la memoria temporal y leemos directamente la base de datos
+        pedidos_tablero = [p for p in pedidos_filtrados if p.get('estado') != 'Cerrado']
         
         en_cocina = [p for p in pedidos_tablero if p.get('estado') == 'En cocina']
         listos = [p for p in pedidos_tablero if p.get('estado') == 'Listo']
@@ -141,10 +142,13 @@ def mostrar_modulo_tracking():
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2 = st.columns([0.80, 0.20])
+                    cx1, cx2, cx3 = st.columns([0.60, 0.20, 0.20])
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
+                        if st.button("👁️", key=f"pop_coc_{p['id']}", use_container_width=True):
+                            mostrar_ventana_emergente_detalle(p)
+                    with cx3:
                         if st.button(">", key=f"fwd_coc_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
                             st.rerun()
@@ -153,58 +157,68 @@ def mostrar_modulo_tracking():
         with col2:
             for p in listos:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
+                        if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
+                            st.rerun()
+                    with cx3:
+                        if st.button("👁️", key=f"pop_bar_{p['id']}", use_container_width=True):
+                            mostrar_ventana_emergente_detalle(p)
+                    with cx4:
                         siguiente = "Despachado" if p['tipo_entrega'] == "Delivery" else "Entregado"
                         if st.button(">", key=f"fwd_bar_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": siguiente}).eq("id", p['id']).execute()
-                            st.rerun()
-                    with cx3:
-                        if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
                             st.rerun()
 
         # 3. COLUMNA: EN CAMINO
         with col3:
             for p in despachados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
-                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
-                            st.rerun()
-                    with cx3:
                         if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
+                            st.rerun()
+                    with cx3:
+                        if st.button("👁️", key=f"pop_cam_{p['id']}", use_container_width=True):
+                            mostrar_ventana_emergente_detalle(p)
+                    with cx4:
+                        if st.button(">", key=f"fwd_cam_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
 
         # 4. COLUMNA: ENTREGADO
         with col4:
             for p in entregados:
                 with st.container(border=True):
-                    cx1, cx2, cx3 = st.columns([0.70, 0.15, 0.15])
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
                     with cx1:
                         st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
                     with cx2:
-                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
-                            st.session_state[f"archivado_{p['id']}"] = True
+                        anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
+                        if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
                             st.rerun()
                     with cx3:
-                        if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
-                            anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
-                            db.table("pedidos").update({"estado": anterior}).eq("id", p['id']).execute()
+                        if st.button("👁️", key=f"pop_ent_{p['id']}", use_container_width=True):
+                            mostrar_ventana_emergente_detalle(p)
+                    with cx4:
+                        # ACTUALIZACIÓN EN BASE DE DATOS PARA QUE EL ESTADO SEA PERMANENTE
+                        if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
+                            db.table("pedidos").update({"estado": "Cerrado"}).eq("id", p['id']).execute()
                             st.rerun()
 
     # ==========================================
     # CASO 2: PEDIDOS CERRADOS CON HISTORIAL (MICRO-COMPACTO)
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        # Obtener los pedidos que están en estado 'Entregado' y marcados como archivados en la sesión
-        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado' and st.session_state.get(f"archivado_{p['id']}", False)]
+        # FILTRO ACTUALIZADO: Leemos el estado 'Cerrado' directo de Supabase
+        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Cerrado']
         
         # --- SISTEMA DE ALERTA Y PURGA EN UNA SOLA FILA ULTRA-COMPACTA ---
         total_registros_sistema = len(todos_los_pedidos)
@@ -228,9 +242,6 @@ def mostrar_modulo_tracking():
                     ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
                     try:
                         db.table("pedidos").delete().in_("id", ids_a_borrar).execute()
-                        for pid in ids_a_borrar:
-                            if f"archivado_{pid}" in st.session_state:
-                                del st.session_state[f"archivado_{pid}"]
                         st.success(f"Eliminados {len(ids_a_borrar)} pedidos.")
                         st.rerun()
                     except Exception as e:
@@ -240,7 +251,7 @@ def mostrar_modulo_tracking():
         
         # --- DESPLIEGUE DE LISTA DE PEDIDOS ---
         if not archivados_del_turno:
-            st.info("No se registran pedidos archivados en esta sesión.")
+            st.info("No se registran pedidos archivados.")
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
@@ -251,10 +262,10 @@ def mostrar_modulo_tracking():
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
+                        # ACTUALIZACIÓN: Cambiamos estado de vuelta a Entregado en Base de Datos
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
-                            st.session_state[f"archivado_{p['id']}"] = False
+                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
                             st.rerun()
-
     # ==========================================
     # CASO 3: INFORME DE VENTAS Y EXPORTACIÓN EXCEL
     # ==========================================
