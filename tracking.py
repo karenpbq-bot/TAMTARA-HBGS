@@ -3,8 +3,7 @@ import pandas as pd
 from database import conectar
 from datetime import datetime
 
-# --- VENTANA EMERGENTE PARA DETALLE DE RECLAMOS/AUDITORÍA ---
-@st.dialog("📋 Detalle del Pedido Cerrado")
+@st.dialog("📋 Detalle del Pedido")
 def mostrar_ventana_emergente_detalle(pedido):
     st.markdown(f"### 🪪 Pedido N° {pedido['codigo_exacta']}")
     st.markdown(f"**Cliente:** {pedido['cliente']} | **Entrega:** {pedido['tipo_entrega']} (`{pedido['destino_entrega']}`)")
@@ -22,11 +21,11 @@ def mostrar_ventana_emergente_detalle(pedido):
         st.markdown(f"**{item['cantidad']}x  {item['nombre']}** — *S/. {sub_total_item:.2f}*")
         if item.get('adicionales'):
             ads = ", ".join([f"{a['nombre']} (+S/. {a['precio']:.2f})" for a in item['adicionales']])
-            st.markdown(f"   └  _Adicionales: {ads}_")
+            st.markdown(f"    └  _Adicionales: {ads}_")
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CSS MÍNIMO SÓLO PARA ESTRUCTURA ANCHA ---
+    # --- CSS PARA MINIMIZAR BOTONES Y LOGRAR UN ACABADO LIMPIO ---
     st.markdown("""
         <style>
             div.block-container {
@@ -61,12 +60,25 @@ def mostrar_modulo_tracking():
                 color: #28a745 !important;
                 font-weight: bold !important;
             }
+            /* Botones minimalistas sin bordes pesados para las acciones de tarjeta */
+            div.stButton > button {
+                padding: 2px 4px !important;
+                font-size: 0.8rem !important;
+                background-color: transparent !important;
+                border: 1px solid #ced4da !important;
+                color: #495057 !important;
+                border-radius: 4px !important;
+            }
+            div.stButton > button:hover {
+                background-color: #e9ecef !important;
+                border-color: #adb5bd !important;
+                color: #212529 !important;
+            }
         </style>
     """, unsafe_allow_html=True)
 
     db = conectar()
     
-    # --- CONSULTA REAL SIN CACHÉ (PEDIDOS EN TIEMPO REAL) ---
     try:
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
@@ -77,10 +89,6 @@ def mostrar_modulo_tracking():
             
     except Exception as e:
         st.error(f"Error al conectar con la base de datos: {e}")
-        return
-
-    if not todos_los_pedidos:
-        st.info("No hay registros de pedidos en el sistema actualmente.")
         return
 
     # --- FILA 1: SELECTOR DE VISTAS Y BOTÓN DE ACTUALIZACIÓN EN TIEMPO REAL ---
@@ -140,13 +148,25 @@ def mostrar_modulo_tracking():
 
         col1, col2, col3, col4 = st.columns(4)
 
-        # 1. COLUMNA: EN COCINA (Con botón de eliminación por incidencia)
+        # Función auxiliar para extraer códigos cortos en miniatura
+        def obtener_resumen_codigos(p):
+            codigos = []
+            for item in p.get('items', []):
+                p_code = item.get('codigo', item['nombre'][:3].upper())
+                codigos.append(p_code)
+                for ad in item.get('adicionales', []):
+                    ad_code = ad.get('codigo', ad['nombre'][:3].upper())
+                    codigos.append(ad_code)
+            return ", ".join(codigos)
+
+        # 1. COLUMNA: EN COCINA (Con botones limpios y proporción óptima)
         with col1:
             for p in en_cocina:
                 with st.container(border=True):
-                    cx1, cx2, cx3, cx4 = st.columns([0.45, 0.15, 0.15, 0.25])
+                    cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_codigos(p)
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span><br><small style="color: #666;">📝 {detalle_str}</small></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("👁️", key=f"pop_coc_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
@@ -164,8 +184,9 @@ def mostrar_modulo_tracking():
             for p in listos:
                 with st.container(border=True):
                     cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_codigos(p)
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span><br><small style="color: #666;">📝 {detalle_str}</small></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
@@ -184,8 +205,9 @@ def mostrar_modulo_tracking():
             for p in despachados:
                 with st.container(border=True):
                     cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_codigos(p)
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span><br><small style="color: #666;">📝 {detalle_str}</small></p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
@@ -203,8 +225,9 @@ def mostrar_modulo_tracking():
             for p in entregados:
                 with st.container(border=True):
                     cx1, cx2, cx3, cx4 = st.columns([0.55, 0.15, 0.15, 0.15])
+                    detalle_str = obtener_resumen_codigos(p)
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span></p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span><br><small style="color: #666;">📝 {detalle_str}</small></p>', unsafe_allow_html=True)
                     with cx2:
                         anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                         if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True):
@@ -214,7 +237,6 @@ def mostrar_modulo_tracking():
                         if st.button("👁️", key=f"pop_ent_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        # ACTUALIZACIÓN CORRECTA: Actualizamos 'pedido_cerrado' a 'Sí' sin tocar la columna estado
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"pedido_cerrado": "Sí"}).eq("id", p['id']).execute()
                             st.rerun()
@@ -260,32 +282,29 @@ def mostrar_modulo_tracking():
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
-                        # Revertir a Kanban activo cambiando pedido_cerrado a 'No'
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
                             db.table("pedidos").update({"pedido_cerrado": "No"}).eq("id", p['id']).execute()
                             st.rerun()
                     with ch4:
-                        # Eliminación individual por incidencia
-                        if st.button("🗑️", key=f"del_hist_{p['id']}", use_container_width=True, help="Eliminar definitivamente por incidencia"):
+                        if st.button("🗑️", key=f"del_hist_{p['id']}", use_container_width=True, help="Eliminar definitivamente"):
                             try:
                                 db.table("pedidos").delete().eq("id", p['id']).execute()
                                 st.success(f"Pedido {p['codigo_exacta']} eliminado.")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
+
     # ==========================================
-    # CASO 3: INFORME DE VENTAS Y EXPORTACIÓN EXCEL
+    # CASO 3: INFORME DE VENTAS
     # ==========================================
     elif navegacion == "📈 Informe de Ventas":
         st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Panel de Análisis Financiero y Exportación</p>', unsafe_allow_html=True)
         
         with st.container(border=True):
-            # 1. Filtro de Rango de Fechas
             c_f1, c_f2, _ = st.columns([1, 1, 2])
             fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY")
             fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY")
 
-            # 2. Lógica de Filtrado por Fecha y Estado (Entregados)
             pedidos_rango = []
             for p in todos_los_pedidos:
                 if p.get('estado') == 'Entregado':
@@ -298,9 +317,7 @@ def mostrar_modulo_tracking():
                         except:
                             continue
 
-            # 3. Cálculo de KPIs Financieros (Separando Cobrados vs Cortesías)
             if pedidos_rango:
-                # Pedidos cobrados (excluyendo cortesías para el ingreso real)
                 pedidos_cobrados = [p for p in pedidos_rango if p.get('cortesia') != 'Sí']
                 pedidos_cortesia = [p for p in pedidos_rango if p.get('cortesia') == 'Sí']
 
@@ -310,7 +327,6 @@ def mostrar_modulo_tracking():
                 total_pedidos_rango = len(pedidos_rango)
                 ticket_promedio = total_ingresos / len(pedidos_cobrados) if len(pedidos_cobrados) > 0 else 0
                 
-                # Desglose por Método de Pago (solo cobrados)
                 ingresos_efectivo = sum(float(p['monto_total']) for p in pedidos_cobrados if p.get('metodo_pago') == 'Efectivo')
                 ingresos_yape = sum(float(p['monto_total']) for p in pedidos_cobrados if p.get('metodo_pago') == 'Yape / Plin')
                 ingresos_tarjeta = sum(float(p['monto_total']) for p in pedidos_cobrados if p.get('metodo_pago') == 'Tarjeta')
@@ -324,7 +340,6 @@ def mostrar_modulo_tracking():
                 
                 st.caption(f"**Desglose de Caja:** Efectivo: S/. {ingresos_efectivo:.2f} | Yape/Plin: S/. {ingresos_yape:.2f} | Tarjeta: S/. {ingresos_tarjeta:.2f}")
                 
-                # 4. Preparación y Generación del Archivo Excel
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 datos_excel = []
