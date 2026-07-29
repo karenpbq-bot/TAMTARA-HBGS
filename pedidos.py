@@ -149,15 +149,11 @@ def mostrar_modulo_pedidos():
         res = obtener_productos()
         
         if res.data:
-            # Filtramos por categoría ('Principal' y 'Bebidas' y 'Complementos')
-            # Nota: Asegúrate de registrar o renombrar tus 'Hamburguesas' a 'Principal' en la base de datos o carta.
-            # LÍNEAS NUEVAS QUE DEBES PONER:
             principales = [p for p in res.data if p.get('vigente', True) and p.get('categoria') in ['Principal', 'Hamburguesas']]
             bebidas = [p for p in res.data if p.get('vigente', True) and p.get('categoria') == 'Bebidas']
-            ad_gratis = [c for c in res.data if c.get('vigente', True) and c.get('categoria') in ['Ad Gratis']]
-            ad_porcion = [c for c in res.data if c.get('vigente', True) and c.get('categoria'] == 'Ad Porción']
+            ad_gratis = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Ad Gratis']
+            ad_porcion = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Ad Porción']
             
-            # Layout de 3 Columnas: [Principales (Ancho), Bebidas (Ancho), Resumen (Estrecho/Medio)]
             col_prin, col_bebs, col_res = st.columns([1.2, 1.2, 1.0])
             
             # 1. COLUMNA: PRINCIPALES
@@ -167,26 +163,38 @@ def mostrar_modulo_pedidos():
                     st.info("No hay productos principales registrados.")
                 for p in principales:
                     with st.container(border=True):
-                        # Subdivisión interna para reducir la foto a la mitad del espacio
                         cp_img, cp_inf = st.columns([1, 2])
                         with cp_img:
                             img = p['imagen_url'] if p['imagen_url'] else "https://via.placeholder.com/150"
                             st.image(img, use_container_width=True)
                         with cp_inf:
                             etiqueta_combo = " 🍟 [COMBO]" if p.get('es_combo') else ""
-                            st.markdown(f'<p class="producto-titulo">{p["nombre"]}{etiqueta_combo}</p>', unsafe_allow_html=True)
+                            cod_label = f" [{p['codigo_corto']}]" if p.get('codigo_corto') else ""
+                            st.markdown(f'<p class="producto-titulo">{p["nombre"]}{cod_label}{etiqueta_combo}</p>', unsafe_allow_html=True)
                             st.markdown(f'<p class="producto-desc">{p["descripcion"]}</p>', unsafe_allow_html=True)
                             st.markdown(f'<p class="producto-precio">S/. {p["precio_venta"]:.2f}</p>', unsafe_allow_html=True)
                         
                         adicionales_seleccionados = []
-                        with st.popover("➕ Adicionales / Salsas", use_container_width=True):
-                            for comp in complementos:
-                                precio_comp = f"(+ S/. {comp['precio_venta']:.2f})" if comp['precio_venta'] > 0 else "(Gratis)"
-                                if st.checkbox(f"{comp['nombre']} {precio_comp}", key=f"comp_{p['id']}_{comp['id']}"):
-                                    adicionales_seleccionados.append({
-                                        "nombre": comp['nombre'],
-                                        "precio": float(comp['precio_venta'])
-                                    })
+                        
+                        col_ad1, col_ad2 = st.columns(2)
+                        with col_ad1:
+                            with st.popover("➕ Ad Gratis", use_container_width=True):
+                                for comp in ad_gratis:
+                                    if st.checkbox(f"{comp['nombre']}", key=f"gratis_{p['id']}_{comp['id']}"):
+                                        adicionales_seleccionados.append({
+                                            "nombre": comp['nombre'],
+                                            "codigo": comp.get('codigo_corto', comp['nombre'][:3].upper()),
+                                            "precio": 0.0
+                                        })
+                        with col_ad2:
+                            with st.popover("➕ Ad Porción", use_container_width=True):
+                                for comp in ad_porcion:
+                                    if st.checkbox(f"{comp['nombre']} (+S/. {comp['precio_venta']:.2f})", key=f"porcion_{p['id']}_{comp['id']}"):
+                                        adicionales_seleccionados.append({
+                                            "nombre": comp['nombre'],
+                                            "codigo": comp.get('codigo_corto', comp['nombre'][:3].upper()),
+                                            "precio": float(comp['precio_venta'])
+                                        })
                         
                         cb_cant, cb_btn = st.columns([1, 1.5])
                         with cb_cant:
@@ -199,6 +207,7 @@ def mostrar_modulo_pedidos():
                                     st.session_state.carrito.append({
                                         "id_producto": p['id'],
                                         "nombre": p['nombre'],
+                                        "codigo": p.get('codigo_corto', p['nombre'][:3].upper()),
                                         "precio_base": float(p['precio_venta']),
                                         "cantidad": cant,
                                         "adicionales": adicionales_seleccionados
@@ -217,7 +226,8 @@ def mostrar_modulo_pedidos():
                             img = p['imagen_url'] if p['imagen_url'] else "https://via.placeholder.com/150"
                             st.image(img, use_container_width=True)
                         with cb_inf:
-                            st.markdown(f'<p class="producto-titulo">{p["nombre"]}</p>', unsafe_allow_html=True)
+                            cod_label = f" [{p['codigo_corto']}]" if p.get('codigo_corto') else ""
+                            st.markdown(f'<p class="producto-titulo">{p["nombre"]}{cod_label}</p>', unsafe_allow_html=True)
                             st.markdown(f'<p class="producto-desc">{p["descripcion"]}</p>', unsafe_allow_html=True)
                             st.markdown(f'<p class="producto-precio">S/. {p["precio_venta"]:.2f}</p>', unsafe_allow_html=True)
                         
@@ -232,6 +242,7 @@ def mostrar_modulo_pedidos():
                                     st.session_state.carrito.append({
                                         "id_producto": p['id'],
                                         "nombre": p['nombre'],
+                                        "codigo": p.get('codigo_corto', p['nombre'][:3].upper()),
                                         "precio_base": float(p['precio_venta']),
                                         "cantidad": cant,
                                         "adicionales": []
