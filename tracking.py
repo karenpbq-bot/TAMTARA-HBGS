@@ -53,7 +53,7 @@ def mostrar_modulo_tracking():
             .texto-pedido-compacto {
                 font-size: 0.78rem !important;
                 margin: 0 !important;
-                line-height: 1.2 !important;
+                line-height: 1.25 !important;
                 color: #313131 !important;
             }
             .parentesis-verde {
@@ -186,7 +186,6 @@ def mostrar_modulo_tracking():
                 else:
                     principales.append(p_code)
             
-            # Orden estricto garantizado: Principales antes que Bebidas
             ordenados = principales + bebidas
             return ", ".join(ordenados)
 
@@ -199,7 +198,7 @@ def mostrar_modulo_tracking():
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("📄", key=f"pop_coc_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
@@ -221,7 +220,7 @@ def mostrar_modulo_tracking():
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("<", key=f"rev_bar_{p['id']}", use_container_width=True, help="Retroceder"):
                             db.table("pedidos").update({"estado": "En cocina"}).eq("id", p['id']).execute()
@@ -244,7 +243,7 @@ def mostrar_modulo_tracking():
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
                         if st.button("<", key=f"rev_cam_{p['id']}", use_container_width=True, help="Retroceder"):
                             db.table("pedidos").update({"estado": "Listo"}).eq("id", p['id']).execute()
@@ -266,7 +265,7 @@ def mostrar_modulo_tracking():
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>' if detalle_str else ''
                     
                     with cx1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b><br>{p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>{p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span>{detalle_html}</p>', unsafe_allow_html=True)
                     with cx2:
                         anterior = "Despachado" if p['tipo_entrega'] == "Delivery" else "Listo"
                         if st.button("<", key=f"rev_ent_{p['id']}", use_container_width=True, help="Retroceder"):
