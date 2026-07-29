@@ -83,15 +83,13 @@ def mostrar_modulo_tracking():
         st.info("No hay registros de pedidos en el sistema actualmente.")
         return
 
-    # --- FILA 1: SELECTOR DE VISTAS (Aislado a la izquierda) ---
-    c_pestana, _ = st.columns([0.4, 0.6])
-    with c_pestana:
-        navegacion = st.radio(
-            "Seleccione Vista:",
-            ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
-            horizontal=True,
-            label_visibility="collapsed"
-        )
+    # --- FILA 1: SELECTOR DE VISTAS (Ancho libre para evitar cortes) ---
+    navegacion = st.radio(
+        "Seleccione Vista:",
+        ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
+        horizontal=True,
+        label_visibility="collapsed"
+    )
         
     # --- FILA 2: FILTRO UNIVERSAL (Abarca el 100% del ancho del tablero) ---
     busqueda = st.text_input(
