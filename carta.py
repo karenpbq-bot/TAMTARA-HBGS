@@ -29,7 +29,7 @@ def mostrar_modulo_carta():
             c1, c2 = st.columns([2, 1])
             nombre = c1.text_input("Nombre")
             precio = c2.number_input("Precio (S/.)", min_value=0.0, step=0.5)
-            codigo_corto = st.text_input("Código Corto / Abreviatura (Ej: BUR, CHC, PAP):", max_chars=10).upper()
+            codigo_corto = st.text_input("Código Corto / Abreviatura (Ej: BUR, MAY, MOS, CHI):", max_chars=10).upper()
             desc = st.text_area("Descripción")
             cat = st.selectbox("Categoría", ["Principal", "Bebidas", "Ad Gratis", "Ad Porción"])
             foto = st.file_uploader("Foto (Cualquier formato)", type=None)
@@ -39,18 +39,13 @@ def mostrar_modulo_carta():
                 if foto:
                     buf = procesar_y_comprimir_imagen(foto)
                     if buf:
-                        # Timestamp único para evitar caché en nuevos productos
                         ts = int(datetime.now().timestamp())
                         nom_arc = f"prod_{nombre.lower().replace(' ','_')}_{ts}.jpg"
                         url_foto = subir_imagen_producto(buf, nom_arc)
                 
                 db.table("productos").insert({
-                    "nombre": nombre, 
-                    "descripcion": desc, 
-                    "precio_venta": precio, 
-                    "categoria": cat, 
-                    "imagen_url": url_foto,
-                    "codigo_corto": codigo_corto  <-- # <--- AQUÍ DEBES AGREGAR ESTA LÍNEA
+                    "nombre": nombre, "descripcion": desc, "precio_venta": precio, 
+                    "categoria": cat, "imagen_url": url_foto, "codigo_corto": codigo_corto
                 }).execute()
                 st.cache_data.clear()
                 st.rerun()
@@ -67,12 +62,12 @@ def mostrar_modulo_carta():
                     st.image(img_url, use_container_width=True)
                 
                 with col_info:
-                    st.subheader(p['nombre'])
+                    cod_label = f" [{p['codigo_corto']}]" if p.get('codigo_corto') else ""
+                    st.subheader(f"{p['nombre']}{cod_label}")
                     st.write(f"**S/. {p['precio_venta']:.2f}** | {p['categoria']}")
                     st.caption(p['descripcion'])
                 
                 with col_acc:
-                    # Botones de control de estado
                     if st.button("📝 Editar", key=f"btn_ed_{p['id']}"):
                         st.session_state[f"editando_{p['id']}"] = True
                     
@@ -87,12 +82,16 @@ def mostrar_modulo_carta():
                         st.info(f"Editando: {p['nombre']}")
                         enom = st.text_input("Nombre", value=p['nombre'])
                         epre = st.number_input("Precio", value=float(p['precio_venta']))
+                        ecod = st.text_input("Código Corto", value=p.get('codigo_corto', ''), max_chars=10).upper()
                         edesc = st.text_area("Descripción", value=p['descripcion'])
                         
-                        categorias_disponibles = ["Principal", "Bebidas", "Complementos"]
+                        categorias_disponibles = ["Principal", "Bebidas", "Ad Gratis", "Ad Porción"]
                         cat_actual = p['categoria']
                         if cat_actual == "Hamburguesas":
                             cat_actual = "Principal"
+                        elif cat_actual == "Complementos":
+                            cat_actual = "Ad Gratis"
+                            
                         idx_cat = categorias_disponibles.index(cat_actual) if cat_actual in categorias_disponibles else 0
 
                         ecat = st.selectbox("Categoría", categorias_disponibles, index=idx_cat)
@@ -104,13 +103,12 @@ def mostrar_modulo_carta():
                             if efoto:
                                 buf = procesar_y_comprimir_imagen(efoto)
                                 if buf:
-                                    # Timestamp único para forzar al navegador a refrescar la imagen nueva
                                     ts = int(datetime.now().timestamp())
                                     e_url = subir_imagen_producto(buf, f"edit_{p['id']}_{ts}.jpg")
                             
                             db.table("productos").update({
-                                "nombre": enom, "precio_venta": epre, "descripcion": edesc,
-                                "categoria": ecat, "imagen_url": e_url
+                                "nombre": enom, "precio_venta": epre, "codigo_corto": ecod,
+                                "descripcion": edesc, "categoria": ecat, "imagen_url": e_url
                             }).eq("id", p['id']).execute()
                             st.session_state[f"editando_{p['id']}"] = False
                             st.cache_data.clear()
