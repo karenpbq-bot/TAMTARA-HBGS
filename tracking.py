@@ -207,9 +207,9 @@ def mostrar_modulo_tracking():
                         if st.button("👁️", key=f"pop_ent_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with cx4:
-                        # ACTUALIZACIÓN DIRECTA EN SUPABASE PARA QUE DESAPAREZCA Y SEA PERMANENTE
+                        # ACTUALIZACIÓN CORRECTA: Actualizamos 'pedido_cerrado' a 'Sí' sin tocar la columna estado
                         if st.button(">", key=f"arc_ent_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Cerrado"}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"pedido_cerrado": "Sí"}).eq("id", p['id']).execute()
                             st.rerun()
 
     # ==========================================
