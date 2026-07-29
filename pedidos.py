@@ -151,9 +151,11 @@ def mostrar_modulo_pedidos():
         if res.data:
             # Filtramos por categoría ('Principal' y 'Bebidas' y 'Complementos')
             # Nota: Asegúrate de registrar o renombrar tus 'Hamburguesas' a 'Principal' en la base de datos o carta.
+            # LÍNEAS NUEVAS QUE DEBES PONER:
             principales = [p for p in res.data if p.get('vigente', True) and p.get('categoria') in ['Principal', 'Hamburguesas']]
             bebidas = [p for p in res.data if p.get('vigente', True) and p.get('categoria') == 'Bebidas']
-            complementos = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Complementos']
+            ad_gratis = [c for c in res.data if c.get('vigente', True) and c.get('categoria') in ['Ad Gratis']]
+            ad_porcion = [c for c in res.data if c.get('vigente', True) and c.get('categoria'] == 'Ad Porción']
             
             # Layout de 3 Columnas: [Principales (Ancho), Bebidas (Ancho), Resumen (Estrecho/Medio)]
             col_prin, col_bebs, col_res = st.columns([1.2, 1.2, 1.0])
