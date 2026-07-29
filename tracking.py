@@ -113,8 +113,7 @@ def mostrar_modulo_tracking():
     # CASO 1: TABLERO KANBAN DE 4 COLUMNAS
     # ==========================================
     if navegacion == "🔥 Pedidos en Proceso":
-        # FILTRO ACTUALIZADO: Ignoramos la memoria temporal y leemos directamente la base de datos
-        pedidos_tablero = [p for p in pedidos_filtrados if p.get('estado') != 'Cerrado']
+        pedidos_tablero = [p for p in pedidos_filtrados if p.get('pedido_cerrado') != 'Sí']
         
         en_cocina = [p for p in pedidos_tablero if p.get('estado') == 'En cocina']
         listos = [p for p in pedidos_tablero if p.get('estado') == 'Listo']
@@ -214,11 +213,10 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL (MICRO-COMPACTO)
+    # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        # FILTRO DIRECTO DE BASE DE DATOS
-        archivados_del_turno = [p for p in todos_los_pedidos if p.get('estado') == 'Cerrado']
+        archivados_del_turno = [p for p in todos_los_pedidos if p.get('pedido_cerrado') == 'Sí']
         
         total_registros_sistema = len(todos_los_pedidos)
         limite_preventivo = 10000
@@ -231,7 +229,7 @@ def mostrar_modulo_tracking():
             st.markdown("🟢 :green[**Almacenamiento óptimo.**]")
         with c_inf3:
             if archivados_del_turno:
-                if st.button("🗑️ Vaciar Historial", use_container_width=True, key="btn_purgar_micro", help="Borra definitivamente estos registros de Supabase"):
+                if st.button("🗑️ Vaciar Todo el Historial", use_container_width=True, key="btn_purgar_micro"):
                     ids_a_borrar = [int(p['id']) for p in archivados_del_turno]
                     try:
                         db.table("pedidos").delete().in_("id", ids_a_borrar).execute()
@@ -247,16 +245,27 @@ def mostrar_modulo_tracking():
         else:
             for p in archivados_del_turno:
                 with st.container(border=True):
-                    ch1, ch2, ch3 = st.columns([0.76, 0.12, 0.12])
+                    ch1, ch2, ch3, ch4 = st.columns([0.64, 0.12, 0.12, 0.12])
                     with ch1:
-                        st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
+                        tag_cortesia = " 🎁 [CORTESÍA]" if p.get('cortesia') == 'Sí' else ""
+                        st.markdown(f'<p class="texto-pedido-compacto"><b>🟢 N° {p["codigo_exacta"]}</b> • {p["cliente"]}{tag_cortesia} <span class="parentesis-verde">({p["destino_entrega"]})</span> • Total: <b>S/. {p["monto_total"]:.2f}</b></p>', unsafe_allow_html=True)
                     with ch2:
                         if st.button("👁️", key=f"pop_hist_{p['id']}", use_container_width=True):
                             mostrar_ventana_emergente_detalle(p)
                     with ch3:
+                        # Revertir a Kanban activo cambiando pedido_cerrado a 'No'
                         if st.button("<", key=f"rev_hist_{p['id']}", use_container_width=True):
-                            db.table("pedidos").update({"estado": "Entregado"}).eq("id", p['id']).execute()
+                            db.table("pedidos").update({"pedido_cerrado": "No"}).eq("id", p['id']).execute()
                             st.rerun()
+                    with ch4:
+                        # Eliminación individual por incidencia
+                        if st.button("🗑️", key=f"del_hist_{p['id']}", use_container_width=True, help="Eliminar definitivamente por incidencia"):
+                            try:
+                                db.table("pedidos").delete().eq("id", p['id']).execute()
+                                st.success(f"Pedido {p['codigo_exacta']} eliminado.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
     # ==========================================
     # CASO 3: INFORME DE VENTAS Y EXPORTACIÓN EXCEL
     # ==========================================
@@ -269,51 +278,52 @@ def mostrar_modulo_tracking():
             fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY")
             fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY")
 
-            # 2. Lógica de Filtrado por Fecha y Estado (Solo Entregados / Cobrados)
+            # 2. Lógica de Filtrado por Fecha y Estado (Entregados)
             pedidos_rango = []
             for p in todos_los_pedidos:
-                # Nos aseguramos de contar solo lo que realmente se vendió (Entregado)
                 if p.get('estado') == 'Entregado':
                     fecha_str = str(p.get('created_at', ''))
                     if len(fecha_str) >= 10:
                         try:
-                            # Extraemos solo el YYYY-MM-DD de Supabase (ej: 2026-07-28)
                             fecha_pedido = datetime.strptime(fecha_str[:10], "%Y-%m-%d").date()
                             if fecha_inicio <= fecha_pedido <= fecha_fin:
                                 pedidos_rango.append(p)
                         except:
                             continue
 
-            # 3. Cálculo de KPIs Financieros
+            # 3. Cálculo de KPIs Financieros (Separando Cobrados vs Cortesías)
             if pedidos_rango:
-                total_ingresos = sum(float(p.get('monto_total', 0)) for p in pedidos_rango)
-                total_pedidos_rango = len(pedidos_rango)
-                ticket_promedio = total_ingresos / total_pedidos_rango if total_pedidos_rango > 0 else 0
+                # Pedidos cobrados (excluyendo cortesías para el ingreso real)
+                pedidos_cobrados = [p for p in pedidos_rango if p.get('cortesia') != 'Sí']
+                pedidos_cortesia = [p for p in pedidos_rango if p.get('cortesia') == 'Sí']
+
+                total_ingresos = sum(float(p.get('monto_total', 0)) for p in pedidos_cobrados)
+                total_cortesias_monto = sum(float(p.get('monto_total', 0)) for p in pedidos_cortesia)
                 
-                # Desglose por Método de Pago
-                ingresos_efectivo = sum(float(p['monto_total']) for p in pedidos_rango if p.get('metodo_pago') == 'Efectivo')
-                ingresos_yape = sum(float(p['monto_total']) for p in pedidos_rango if p.get('metodo_pago') == 'Yape / Plin')
-                ingresos_tarjeta = sum(float(p['monto_total']) for p in pedidos_rango if p.get('metodo_pago') == 'Tarjeta')
+                total_pedidos_rango = len(pedidos_rango)
+                ticket_promedio = total_ingresos / len(pedidos_cobrados) if len(pedidos_cobrados) > 0 else 0
+                
+                # Desglose por Método de Pago (solo cobrados)
+                ingresos_efectivo = sum(float(p['monto_total']) for p in pedidos_cobrados if p.get('metodo_pago') == 'Efectivo')
+                ingresos_yape = sum(float(p['monto_total']) for p in pedidos_cobrados if p.get('metodo_pago') == 'Yape / Plin')
+                ingresos_tarjeta = sum(float(p['monto_total']) for p in pedidos_cobrados if p.get('metodo_pago') == 'Tarjeta')
 
                 st.divider()
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric("💰 Total Ingresos", f"S/. {total_ingresos:.2f}")
-                m2.metric("📦 Cantidad de Pedidos", f"{total_pedidos_rango}")
+                m1.metric("💰 Total Ingresos Reales", f"S/. {total_ingresos:.2f}")
+                m2.metric("🎁 Total Cortesías", f"S/. {total_cortesias_monto:.2f}", f"{len(pedidos_cortesia)} pedidos")
                 m3.metric("🧾 Ticket Promedio", f"S/. {ticket_promedio:.2f}")
-                m4.metric("💳 Yape/Plin + Tarjeta", f"S/. {(ingresos_yape + ingresos_tarjeta):.2f}")
+                m4.metric("📦 Total Pedidos", f"{total_pedidos_rango}")
                 
-                st.caption(f"**Desglose:** Efectivo: S/. {ingresos_efectivo:.2f} | Yape/Plin: S/. {ingresos_yape:.2f} | Tarjeta: S/. {ingresos_tarjeta:.2f}")
+                st.caption(f"**Desglose de Caja:** Efectivo: S/. {ingresos_efectivo:.2f} | Yape/Plin: S/. {ingresos_yape:.2f} | Tarjeta: S/. {ingresos_tarjeta:.2f}")
                 
                 # 4. Preparación y Generación del Archivo Excel
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Aplanamos los datos para que sean legibles en Excel
                 datos_excel = []
                 for p in pedidos_rango:
                     fecha_limpia = p['created_at'][:10] if isinstance(p.get('created_at'), str) else ""
                     hora_limpia = p['created_at'][11:19] if isinstance(p.get('created_at'), str) and len(p['created_at']) > 15 else ""
-                    
-                    # Extraer un resumen rápido de los items consumidos
                     resumen_items = " | ".join([f"{item['cantidad']}x {item['nombre']}" for item in p.get('items', [])])
                     
                     datos_excel.append({
@@ -322,8 +332,9 @@ def mostrar_modulo_tracking():
                         "Fecha": fecha_limpia,
                         "Hora": hora_limpia,
                         "Cliente": p.get('cliente', ''),
+                        "Tipo": "Cortesía" if p.get('cortesia') == 'Sí' else "Venta Regular",
                         "Canal": p.get('tipo_entrega', ''),
-                        "Monto Total (S/.)": float(p.get('monto_total', 0)),
+                        "Monto (S/.)": float(p.get('monto_total', 0)),
                         "Método de Pago": p.get('metodo_pago', ''),
                         "N° Operación": p.get('num_operacion', ''),
                         "Resumen de Compra": resumen_items
@@ -331,13 +342,11 @@ def mostrar_modulo_tracking():
                 
                 df_export = pd.DataFrame(datos_excel)
                 
-                # Proceso de exportación a BytesIO
                 import io
                 buffer_excel = io.BytesIO()
                 with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
                     df_export.to_excel(writer, index=False, sheet_name="Ventas")
                 
-                # Botón de Descarga
                 st.download_button(
                     label="📥 Descargar Informe Completo en Excel",
                     data=buffer_excel.getvalue(),
@@ -347,5 +356,4 @@ def mostrar_modulo_tracking():
                 )
             else:
                 st.divider()
-                st.info(f"No se registraron ventas en estado 'Entregado' para el rango del {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}.")
-                
+                st.info(f"No se registran ventas en estado 'Entregado' para el rango del {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}.")
