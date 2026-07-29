@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from database import conectar, obtener_productos
-# CORRECCIÓN CRÍTICA: Importación de datetime para evitar el colapso del renderizado
 from datetime import datetime
 
 # =====================================================================
@@ -9,21 +8,12 @@ from datetime import datetime
 # =====================================================================
 
 def verificar_estado_ticketera():
-    """
-    Valida la comunicación con el intermediario local de impresión.
-    Modifica la lógica interna si usas un agente local (como PrintNode).
-    """
     try:
-        # Aquí puedes añadir un ping o un request HTTP a tu servicio local
         return {"online": True}
     except Exception:
         return {"online": False}
 
 def generar_formato_ticket(pedido_payload, codigo_ticket, tipo_ticket="caja"):
-    """
-    Construye las cadenas estructuradas para las ticketeras.
-    Tipos: 'caja' (con montos), 'cocina' (solo productos y agregados).
-    """
     lineas = []
     if tipo_ticket == "caja":
         lineas.append("      LA EXACTA HAMBURGUESERIA      ")
@@ -38,54 +28,41 @@ def generar_formato_ticket(pedido_payload, codigo_ticket, tipo_ticket="caja"):
                 lineas.append(f"  └ Adic: {', '.join([a['nombre'] for a in i['adicionales']])}")
         lineas.append("-" * 40)
         lineas.append(f"TOTAL: S/. {pedido_payload['monto_total']:.2f} | {pedido_payload['metodo_pago']}")
-        lineas.append("\n\x1b\x69") # Corte de papel nativo ESC/POS
+        lineas.append("\n\x1b\x69")
         
     elif tipo_ticket == "cocina":
-        lineas.append("     🔥 NUEVA ORDEN - COCINA 🔥     ")
+        lineas.append("      🔥 NUEVA ORDEN - COCINA 🔥      ")
         lineas.append(f"Pedido N°: {codigo_ticket}")
         lineas.append(f"Ubicación: {pedido_payload['destino_entrega'] or 'Llevar'}")
         lineas.append("-" * 40)
         for i in pedido_payload['items']:
             lineas.append(f"[{i['cantidad']}] {i['nombre']}")
             if i['adicionales']:
-                lineas.append(f"   └ Adic: {', '.join([a['nombre'] for a in i['adicionales']])}")
+                lineas.append(f"    └ Adic: {', '.join([a['nombre'] for a in i['adicionales']])}")
         lineas.append("-" * 40)
-        lineas.append("\n\x1b\x69") # Corte de papel nativo ESC/POS
+        lineas.append("\n\x1b\x69")
         
     return "\n".join(lineas)
 
 def enviar_a_hardware_ticketera(texto_ticket):
-    """
-    Envía los bytes al puerto físico o demonio de impresión local.
-    Devuelve True si el hardware aceptó el paquete con éxito.
-    """
-    # En desarrollo devolvemos True. Integra aquí tu librería local (win32print, cups, etc.)
     return True
 
 def procesar_impresion_comanda(pedido_id, codigo_ticket, pedido_payload, db):
-    """
-    Controla el ciclo de vida del envío físico y auditoría en base de datos.
-    """
     st.session_state[f"imprimiendo_{pedido_id}"] = True
-    
     try:
-        # 1. Validar hardware
         servicio = verificar_estado_ticketera()
         if not servicio["online"]:
             raise Exception("La ticketera física está desconectada o el servicio local está apagado.")
             
-        # 2. Construir tickets estructurados
         ticket_caja = generar_formato_ticket(pedido_payload, codigo_ticket, tipo_ticket="caja")
         ticket_cocina = generar_formato_ticket(pedido_payload, codigo_ticket, tipo_ticket="cocina")
         
-        # 3. Lanzar al hardware físico
         envio_caja = enviar_a_hardware_ticketera(ticket_caja)
         envio_cocina = enviar_a_hardware_ticketera(ticket_cocina)
         
         if not envio_caja or not envio_cocina:
             raise Exception("El buffer de la ticketera Advance rechazó las tramas de datos.")
             
-        # 4. Registrar éxito absoluto en la base de datos
         db.table("pedidos").update({
             "impreso": True, 
             "fecha_impresion": datetime.now().isoformat()
@@ -95,7 +72,6 @@ def procesar_impresion_comanda(pedido_id, codigo_ticket, pedido_payload, db):
         
     except Exception as e:
         st.error(f"🚨 FALLO DE IMPRESIÓN FISICA: {str(e)}")
-        # Registrar error en logs de auditoría para soporte técnico
         try:
             db.table("log_errores").insert({
                 "pedido_id": pedido_id, 
@@ -103,12 +79,40 @@ def procesar_impresion_comanda(pedido_id, codigo_ticket, pedido_payload, db):
                 "error": str(e)
             }).execute()
         except Exception:
-            pass # Previene colapsar si la base de datos también experimenta lag
+            pass
             
     finally:
         st.session_state[f"imprimiendo_{pedido_id}"] = False
 
 def mostrar_modulo_pedidos():
+    # --- CSS PARA OPTIMIZAR ESPACIO Y TAMAÑOS ---
+    st.markdown("""
+        <style>
+            div.block-container {
+                padding-top: 1.5rem !important; 
+                padding-bottom: 1rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+                max-width: 100% !important;
+            }
+            .producto-titulo {
+                font-size: 0.95rem !important;
+                font-weight: bold !important;
+                margin-bottom: 2px !important;
+            }
+            .producto-desc {
+                font-size: 0.75rem !important;
+                color: #555555 !important;
+                margin-bottom: 4px !important;
+            }
+            .producto-precio {
+                font-size: 0.85rem !important;
+                font-weight: bold !important;
+                color: #28a745 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     if 'carrito' not in st.session_state:
         st.session_state.carrito = []
     if 'paso_pedido' not in st.session_state:
@@ -118,41 +122,59 @@ def mostrar_modulo_pedidos():
     db = conectar()
     
     # --- IDENTIFICACIÓN INICIAL ---
-    nombre_cliente = st.text_input(
-        "👤 Nombre del Cliente:", 
-        value=st.session_state.get('cliente_actual', ''),
-        placeholder="Ej: Juan Perez"
-    )
-    st.session_state['cliente_actual'] = nombre_cliente
+    c_id1, c_id2, c_id3 = st.columns([2, 1, 1])
+    with c_id1:
+        nombre_cliente = st.text_input(
+            "👤 Nombre del Cliente:", 
+            value=st.session_state.get('cliente_actual', ''),
+            placeholder="Ej: Juan Perez"
+        )
+        st.session_state['cliente_actual'] = nombre_cliente
 
-    tipo_ent = st.radio("Tipo de Entrega:", ["Mesa / Salón", "Delivery / Llevar"], horizontal=True)
-    
-    if tipo_ent == "Mesa / Salón":
-        destino = st.text_input("N° Mesa:", placeholder="Ej: Mesa 4")
-        telefono = ""
-    else:
-        destino = st.text_input("Dirección de Despacho (Si es delivery):", placeholder="Ej: Av. Principal 123 o 'Llevar'")
-        telefono = st.text_input("Teléfono de Contacto:", placeholder="Ej: 999888777")
+    with c_id2:
+        tipo_ent = st.radio("Tipo de Entrega:", ["Mesa / Salón", "Delivery / Llevar"], horizontal=True)
 
-    # --- PASO 1: SELECCIÓN Y VALIDACIÓN ---
+    with c_id3:
+        if tipo_ent == "Mesa / Salón":
+            destino = st.text_input("N° Mesa:", placeholder="Ej: Mesa 4")
+            telefono = ""
+        else:
+            destino = st.text_input("Dirección / Referencia:", placeholder="Ej: Av. Principal 123")
+            telefono = st.text_input("Teléfono:", placeholder="Ej: 999888777")
+
+    st.divider()
+
+    # --- PASO 1: SELECCIÓN Y VALIDACIÓN EN 3 COLUMNAS ---
     if st.session_state.paso_pedido == 1:
         res = obtener_productos()
         
         if res.data:
-            productos = [p for p in res.data if p.get('vigente', True) and p.get('categoria') != 'Complementos']
+            # Filtramos por categoría ('Principal' y 'Bebidas' y 'Complementos')
+            # Nota: Asegúrate de registrar o renombrar tus 'Hamburguesas' a 'Principal' en la base de datos o carta.
+            principales = [p for p in res.data if p.get('vigente', True) and p.get('categoria') in ['Principal', 'Hamburguesas']]
+            bebidas = [p for p in res.data if p.get('vigente', True) and p.get('categoria') == 'Bebidas']
             complementos = [c for c in res.data if c.get('vigente', True) and c.get('categoria') == 'Complementos']
             
-            for p in productos:
-                with st.container(border=True):
-                    c1, c2, c3 = st.columns([1, 2, 1])
-                    with c1:
-                        img = p['imagen_url'] if p['imagen_url'] else "https://via.placeholder.com/150"
-                        st.image(img, use_container_width=True)
-                    with c2:
-                        etiqueta_combo = " 🍟 [COMBO]" if p.get('es_combo') else ""
-                        st.subheader(f"{p['nombre']}{etiqueta_combo}")
-                        st.write(p['descripcion'])
-                        st.write(f"**S/. {p['precio_venta']:.2f}**")
+            # Layout de 3 Columnas: [Principales (Ancho), Bebidas (Ancho), Resumen (Estrecho/Medio)]
+            col_prin, col_bebs, col_res = st.columns([1.2, 1.2, 1.0])
+            
+            # 1. COLUMNA: PRINCIPALES
+            with col_prin:
+                st.markdown("### 🍔 Principales")
+                if not principales:
+                    st.info("No hay productos principales registrados.")
+                for p in principales:
+                    with st.container(border=True):
+                        # Subdivisión interna para reducir la foto a la mitad del espacio
+                        cp_img, cp_inf = st.columns([1, 2])
+                        with cp_img:
+                            img = p['imagen_url'] if p['imagen_url'] else "https://via.placeholder.com/150"
+                            st.image(img, use_container_width=True)
+                        with cp_inf:
+                            etiqueta_combo = " 🍟 [COMBO]" if p.get('es_combo') else ""
+                            st.markdown(f'<p class="producto-titulo">{p["nombre"]}{etiqueta_combo}</p>', unsafe_allow_html=True)
+                            st.markdown(f'<p class="producto-desc">{p["descripcion"]}</p>', unsafe_allow_html=True)
+                            st.markdown(f'<p class="producto-precio">S/. {p["precio_venta"]:.2f}</p>', unsafe_allow_html=True)
                         
                         adicionales_seleccionados = []
                         with st.popover("➕ Adicionales / Salsas", use_container_width=True):
@@ -163,49 +185,90 @@ def mostrar_modulo_pedidos():
                                         "nombre": comp['nombre'],
                                         "precio": float(comp['precio_venta'])
                                     })
-                    
-                    with c3:
-                        cant = st.number_input("Cant", min_value=1, max_value=10, key=f"cant_{p['id']}")
-                        if st.button("🛒 Agregar", key=f"btn_{p['id']}", use_container_width=True, type="primary"):
-                            if not st.session_state['cliente_actual'].strip():
-                                st.error("⚠️ Ingrese el nombre del cliente arriba antes de agregar.")
-                            else:
-                                st.session_state.carrito.append({
-                                    "id_producto": p['id'],
-                                    "nombre": p['nombre'],
-                                    "precio_base": float(p['precio_venta']),
-                                    "cantidad": cant,
-                                    "adicionales": adicionales_seleccionados
-                                })
-                                st.success(f"✅ {p['nombre']} agregado")
-                                st.rerun()
+                        
+                        cb_cant, cb_btn = st.columns([1, 1.5])
+                        with cb_cant:
+                            cant = st.number_input("Cant", min_value=1, max_value=10, key=f"cant_{p['id']}", label_visibility="collapsed")
+                        with cb_btn:
+                            if st.button("🛒 Agregar", key=f"btn_{p['id']}", use_container_width=True, type="primary"):
+                                if not st.session_state['cliente_actual'].strip():
+                                    st.error("⚠️ Ingrese el nombre del cliente.")
+                                else:
+                                    st.session_state.carrito.append({
+                                        "id_producto": p['id'],
+                                        "nombre": p['nombre'],
+                                        "precio_base": float(p['precio_venta']),
+                                        "cantidad": cant,
+                                        "adicionales": adicionales_seleccionados
+                                    })
+                                    st.rerun()
 
-            if st.session_state.carrito:
-                st.divider()
-                st.subheader("🛍️ Lista de Compra Actual")
-                total = 0.0
-                for i, item in enumerate(st.session_state.carrito):
-                    p_ad = sum(float(a['precio']) for a in item['adicionales'])
-                    subtotal = (item['precio_base'] + p_ad) * item['cantidad']
-                    total += subtotal
-                    
-                    st.write(f"**{item['cantidad']}x {item['nombre']}** - S/. {subtotal:.2f}")
-                    if item['adicionales']:
-                        st.caption(f"  └ Adicionales: {', '.join([f'{a['nombre']}' for a in item['adicionales']])}")
-                    if st.button("Quitar 🗑️", key=f"del_{i}"):
-                        st.session_state.carrito.pop(i)
-                        st.rerun()
-                
-                st.divider()
-                st.metric("Total Acumulado", f"S/. {total:.2f}")
-                if st.button("💳 Ir al Cierre de Caja", use_container_width=True, type="primary"):
-                    st.session_state.paso_pedido = 2
-                    st.rerun()
+            # 2. COLUMNA: BEBIDAS
+            with col_bebs:
+                st.markdown("### 🥤 Bebidas")
+                if not bebidas:
+                    st.info("No hay bebidas registradas.")
+                for p in bebidas:
+                    with st.container(border=True):
+                        cb_img, cb_inf = st.columns([1, 2])
+                        with cb_img:
+                            img = p['imagen_url'] if p['imagen_url'] else "https://via.placeholder.com/150"
+                            st.image(img, use_container_width=True)
+                        with cb_inf:
+                            st.markdown(f'<p class="producto-titulo">{p["nombre"]}</p>', unsafe_allow_html=True)
+                            st.markdown(f'<p class="producto-desc">{p["descripcion"]}</p>', unsafe_allow_html=True)
+                            st.markdown(f'<p class="producto-precio">S/. {p["precio_venta"]:.2f}</p>', unsafe_allow_html=True)
+                        
+                        cb_cant_b, cb_btn_b = st.columns([1, 1.5])
+                        with cb_cant_b:
+                            cant = st.number_input("Cant", min_value=1, max_value=10, key=f"cant_beb_{p['id']}", label_visibility="collapsed")
+                        with cb_btn_b:
+                            if st.button("🛒 Agregar", key=f"btn_beb_{p['id']}", use_container_width=True, type="primary"):
+                                if not st.session_state['cliente_actual'].strip():
+                                    st.error("⚠️ Ingrese el nombre del cliente.")
+                                else:
+                                    st.session_state.carrito.append({
+                                        "id_producto": p['id'],
+                                        "nombre": p['nombre'],
+                                        "precio_base": float(p['precio_venta']),
+                                        "cantidad": cant,
+                                        "adicionales": []
+                                    })
+                                    st.rerun()
+
+            # 3. COLUMNA: RESUMEN DE COMPRA (CARRITO)
+            with col_res:
+                with st.container(border=True):
+                    st.markdown("### 🛍️ Resumen Actual")
+                    if not st.session_state.carrito:
+                        st.info("El carrito está vacío.")
+                    else:
+                        total = 0.0
+                        for i, item in enumerate(st.session_state.carrito):
+                            p_ad = sum(float(a['precio']) for a in item['adicionales'])
+                            subtotal = (item['precio_base'] + p_ad) * item['cantidad']
+                            total += subtotal
+                            
+                            rc1, rc2 = st.columns([4, 1])
+                            with rc1:
+                                st.markdown(f"**{item['cantidad']}x {item['nombre']}** — S/. {subtotal:.2f}")
+                                if item['adicionales']:
+                                    st.caption(f"  └ {', '.join([a['nombre'] for a in item['adicionales']])}")
+                            with rc2:
+                                if st.button("🗑️", key=f"del_{i}", help="Quitar producto"):
+                                    st.session_state.carrito.pop(i)
+                                    st.rerun()
+                        
+                        st.divider()
+                        st.metric("Total a Pagar", f"S/. {total:.2f}")
+                        if st.button("💳 Ir al Cierre de Caja", use_container_width=True, type="primary"):
+                            st.session_state.paso_pedido = 2
+                            st.rerun()
 
     # --- PASO 2: CIERRE, COBRO Y DISTRIBUCIÓN DE IMPRESIÓN ---
     elif st.session_state.paso_pedido == 2:
         st.subheader("💳 Cierre y Validación del Pago")
-        if st.button("⬅️ Volver a la Carta"):
+        if st.button("⬅️ Volver al Catálogo"):
             st.session_state.paso_pedido = 1
             st.rerun()
 
@@ -217,12 +280,11 @@ def mostrar_modulo_pedidos():
         c_pago1, c_pago2 = st.columns(2)
         
         with c_pago1:
-            # Checkbox para marcar si el pedido es cortesía
-            es_cortesia = st.checkbox("🎁 Marcar como Cortesía")
+            es_cortesia = st.checkbox("🎁 Marcar como Cortesía (Liberado de Pago)")
             
             if es_cortesia:
                 metodo = "Cortesía"
-                st.info("ℹ️ Este pedido es una cortesía. El monto se registrará para control, pero no sumará en las ventas cobradas.")
+                st.info("ℹ️ Este pedido es una cortesía. El valor se registrará para control interno, pero no sumará en las ventas cobradas.")
             else:
                 metodo = st.radio("Forma de Pago Registrada:", ["Efectivo", "Yape / Plin", "Tarjeta"])
             
@@ -230,19 +292,20 @@ def mostrar_modulo_pedidos():
             monto_rec = None
             vuelto = 0.0
             
-            if metodo in ["Yape / Plin", "Tarjeta"]:
-                num_op = st.text_input("N° de Operación (Obligatorio):", placeholder="Ej: 198273")
-            elif metodo == "Efectivo":
-                monto_rec = st.number_input("Monto en efectivo recibido:", min_value=float(total_calculado), step=1.0)
-                vuelto = monto_rec - total_calculado
-                st.subheader(f"💵 Vuelto Exacto: S/. {vuelto:.2f}")
+            if not es_cortesia:
+                if metodo in ["Yape / Plin", "Tarjeta"]:
+                    num_op = st.text_input("N° de Operación (Obligatorio):", placeholder="Ej: 198273")
+                elif metodo == "Efectivo":
+                    monto_rec = st.number_input("Monto en efectivo recibido:", min_value=float(total_calculado), step=1.0)
+                    vuelto = monto_rec - total_calculado
+                    st.subheader(f"💵 Vuelto Exacto: S/. {vuelto:.2f}")
 
         with c_pago2:
             st.write("### Datos de Auditoría")
             st.info(f"**Cliente:** {st.session_state['cliente_actual']}\n\n**Despacho:** {destino if destino else 'No indicado'}")
             
             if st.button("🔥 CONFIRMAR COBRO Y EMITIR TICKETS", use_container_width=True, type="primary"):
-                if metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
+                if not es_cortesia and metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
                     st.error("⚠️ Registre el número de operación bancaria.")
                 else:
                     pedido_payload = {
@@ -251,66 +314,26 @@ def mostrar_modulo_pedidos():
                         "destino_entrega": destino,
                         "telefono_contacto": telefono,
                         "items": st.session_state.carrito,
-                        "metodo_pago": metodo if not es_cortesia else "Cortesía",
-                        "monto_total": total_calculado,  # Registramos el valor real de la producción
+                        "metodo_pago": metodo,
+                        "monto_total": total_calculado,
                         "num_operacion": num_op,
                         "monto_recibido": monto_rec,
                         "vuelto": vuelto,
                         "estado": "En cocina",
                         "pedido_cerrado": "No",
-                        "cortesia": "Sí" if es_cortesia else "No"  # Guardamos la nueva columna en Supabase
+                        "cortesia": "Sí" if es_cortesia else "No"
                     }
                     
-                    # Ejecución del Insert
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
-                    # FORMATEO DE CÓDIGO DDMM-CORRELATIVO
                     prefijo_hoy = datetime.now().strftime("%d%m")
                     codigo_ticket_impreso = f"{prefijo_hoy}-{int(id_pedido):03d}"
                     
                     st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado en base de datos.")
                     
-                    # Ejecución de Impresión
                     with st.spinner("Transmitiendo datos a ticketeras Advance..."):
                         procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
-                    
-                    st.balloons()
-                    st.session_state.carrito = []
-                    st.session_state.paso_pedido = 1
-                    st.rerun()
-                    
-                    # --- RUTEO AUTOMÁTICO DE IMPRESORAS ---
-                    st.info("🖨️ [SISTEMA DE IMPRESIÓN] Enviando órdenes a las ticketeras Advance...")
-                    
-                    st.code(f"""
-                    >>> TRANSMITIENDO A IMPRESORA 1 (CAJA / CAJERO) <<<
-                    [TICKET 1: COMPROBANTE DE COMPRA]
-                    LA EXACTA HAMBURGUESERÍA
-                    Pedido N°: {codigo_ticket_impreso}
-                    Cliente: {st.session_state['cliente_actual']}
-                    -----------------------------------------
-                    {chr(10).join(lineas_ticket_productos)}
-                    -----------------------------------------
-                    TOTAL: S/. {total_final:.2f} | {metodo}
-                    \x1b\x69 <-- Papel Cortado en Caja
-                    
-                    >>> TRANSMITIENDO A IMPRESORA 2 (DESPACHO Y COCINA) <<<
-                    [TICKET 2: CONTROL LOGÍSTICO]
-                    Pedido N°: {codigo_ticket_impreso} | Cliente: {st.session_state['cliente_actual']}
-                    Despacho: {tipo_ent} | Ubicación: {destino}
-                    \x1b\x69 <-- Papel Cortado en Despacho
-                    
-                    [TICKET 3: COMANDA DE PRODUCCIÓN]
-                    🔥 NUEVA ORDEN - COCINA 🔥
-                    Pedido N°: {codigo_ticket_impreso}
-                    -----------------------------------------
-                    {chr(10).join([f"[{i['cantidad']}] {i['nombre']}{chr(10)+'   └ Adic: '+', '.join([a['nombre'] for a in i['adicionales']]) if i['adicionales'] else ''}" for i in st.session_state.carrito])}
-                    -----------------------------------------
-                    \x1b\x69 <-- Papel Cortado en Cocina
-                    
-                    STATUS VEND: [OK] - Buffers vaciados con éxito.
-                    """)
                     
                     st.balloons()
                     st.session_state.carrito = []
