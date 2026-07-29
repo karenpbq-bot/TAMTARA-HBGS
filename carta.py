@@ -3,6 +3,7 @@ import pandas as pd
 from database import conectar, obtener_productos, subir_imagen_producto
 from PIL import Image, ImageOps
 import io
+from datetime import datetime
 
 def procesar_y_comprimir_imagen(archivo_subido, calidad=75):
     try:
@@ -37,7 +38,9 @@ def mostrar_modulo_carta():
                 if foto:
                     buf = procesar_y_comprimir_imagen(foto)
                     if buf:
-                        nom_arc = f"prod_{nombre.lower().replace(' ','_')}.jpg"
+                        # Timestamp único para evitar caché en nuevos productos
+                        ts = int(datetime.now().timestamp())
+                        nom_arc = f"prod_{nombre.lower().replace(' ','_')}_{ts}.jpg"
                         url_foto = subir_imagen_producto(buf, nom_arc)
                 
                 db.table("productos").insert({
@@ -80,8 +83,14 @@ def mostrar_modulo_carta():
                         enom = st.text_input("Nombre", value=p['nombre'])
                         epre = st.number_input("Precio", value=float(p['precio_venta']))
                         edesc = st.text_area("Descripción", value=p['descripcion'])
-                        ecat = st.selectbox("Categoría", ["Principal", "Bebidas", "Complementos"], 
-                                          index=["Hamburguesas", "Bebidas", "Complementos"].index(p['categoria']))
+                        
+                        categorias_disponibles = ["Principal", "Bebidas", "Complementos"]
+                        cat_actual = p['categoria']
+                        if cat_actual == "Hamburguesas":
+                            cat_actual = "Principal"
+                        idx_cat = categorias_disponibles.index(cat_actual) if cat_actual in categorias_disponibles else 0
+
+                        ecat = st.selectbox("Categoría", categorias_disponibles, index=idx_cat)
                         efoto = st.file_uploader("Cambiar foto", type=None)
                         
                         c_save, c_can = st.columns(2)
@@ -90,7 +99,9 @@ def mostrar_modulo_carta():
                             if efoto:
                                 buf = procesar_y_comprimir_imagen(efoto)
                                 if buf:
-                                    e_url = subir_imagen_producto(buf, f"edit_{p['id']}.jpg")
+                                    # Timestamp único para forzar al navegador a refrescar la imagen nueva
+                                    ts = int(datetime.now().timestamp())
+                                    e_url = subir_imagen_producto(buf, f"edit_{p['id']}_{ts}.jpg")
                             
                             db.table("productos").update({
                                 "nombre": enom, "precio_venta": epre, "descripcion": edesc,
