@@ -29,7 +29,7 @@ def mostrar_modulo_carta():
             nombre = c1.text_input("Nombre")
             precio = c2.number_input("Precio (S/.)", min_value=0.0, step=0.5)
             desc = st.text_area("Descripción")
-            cat = st.selectbox("Categoría", ["Hamburguesas", "Bebidas", "Complementos"])
+            cat = st.selectbox("Categoría", ["Principal", "Bebidas", "Complementos"])
             foto = st.file_uploader("Foto (Cualquier formato)", type=None)
             
             if st.form_submit_button("Guardar Producto"):
