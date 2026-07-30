@@ -28,8 +28,13 @@ if autenticado:
             st.sidebar.image(ruta_logo, use_container_width=True)
             
         st.sidebar.title("🎛️ Panel Admin")
-        menu = st.sidebar.selectbox("Seleccione un Módulo", 
-            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"])
+        
+        # Menú lateral visible directamente sin desplegables
+        menu = st.sidebar.radio(
+            "Seleccione un Módulo", 
+            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"],
+            label_visibility="collapsed"
+        )
         
         if menu == "Inicio":
             st.header("👑 Panel de Control")
@@ -48,12 +53,6 @@ if autenticado:
             
         st.sidebar.divider()
         if st.sidebar.button("Cerrar Sesión"):
-            st.session_state.clear()
-            st.rerun()
-
-    elif rol == 'cliente':
-        # --- VISTA CLIENTE / COUNTER ---
-        if st.sidebar.button("⬅️ Inicio"):
             st.session_state.clear()
             st.rerun()
             
