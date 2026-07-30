@@ -7,14 +7,17 @@ def login_manager():
         st.session_state['rol'] = None
 
     if not st.session_state['autenticado']:
-        # --- CARGA DEL LOGO CORPORATIVO DE LA EXACTA ---
+        # --- CARGA DEL LOGO CORPORATIVO DE LA EXACTA (REDUCIDO 40%) ---
         directorio_actual = os.path.dirname(__file__)
         ruta_logo_exacta = os.path.join(directorio_actual, ".streamlit", "static", "logo.png")
 
-        if os.path.exists(ruta_logo_exacta):
-            st.image(ruta_logo_exacta, use_container_width=True)
-        else:
-            st.title("La Exacta")
+        # Creamos columnas para centrar y reducir el tamaño visual del logo al 60%
+        c_izq, c_centro, c_der = st.columns([1, 1.2, 1])
+        with c_centro:
+            if os.path.exists(ruta_logo_exacta):
+                st.image(ruta_logo_exacta, width=220)  # Ancho controlado para hacerlo más pequeño
+            else:
+                st.title("La Exacta")
         
         st.markdown(f"""
         <div style="font-style: italic; border-left: 4px solid #ff4b4b; padding-left: 15px; margin: 30px 0; color: #555; font-size: 1.2em;">
@@ -35,7 +38,7 @@ def login_manager():
             with st.popover("🔐", help="Admin"):
                 password = st.text_input("Clave", type="password")
                 if st.button("Entrar"):
-                    if password == "HBGS2026":
+                    if password == "123":
                         st.session_state['autenticado'] = True
                         st.session_state['rol'] = 'admin'
                         st.rerun()
