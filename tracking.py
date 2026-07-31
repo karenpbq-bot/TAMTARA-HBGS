@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 from database import conectar
 from datetime import datetime, date
 
