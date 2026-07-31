@@ -55,5 +55,11 @@ if autenticado:
         if st.sidebar.button("Cerrar Sesión"):
             st.session_state.clear()
             st.rerun()
+
+    elif rol == 'cliente':
+        # --- VISTA CLIENTE / COUNTER ---
+        if st.sidebar.button("⬅️ Inicio"):
+            st.session_state.clear()
+            st.rerun()
             
         mostrar_modulo_pedidos()
