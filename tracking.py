@@ -96,7 +96,7 @@ def mostrar_modulo_tracking():
     c_head1, c_head2 = st.columns([0.75, 0.25])
     with c_head1:
         navegacion = st.radio(
-            "Seleccione Vista:",
+            ":",
             ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
             horizontal=True
         )
