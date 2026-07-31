@@ -304,7 +304,7 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # CASO 3: INFORME DE VENTAS (ROBUSTO Y NORMALIZADO)
+    # CASO 3: INFORME DE VENTAS (CON DESCARGA DE REPORTE)
     # ==========================================
     elif navegacion == "📈 Informe de Ventas":
         st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Panel de Análisis Financiero y Exportación</p>', unsafe_allow_html=True)
@@ -336,11 +336,10 @@ def mostrar_modulo_tracking():
                 st.markdown("---")
                 st.markdown("### 📊 Desglose por Forma de Pago (Normalizado)")
                 
-                # Agrupación y normalización estricta por método de pago (para evitar duplicados por mayúsculas/minúsculas)
+                # Agrupación y normalización estricta por método de pago
                 desglose_pagos = {}
                 for p in ingresos_validos:
                     metodo_raw = str(p.get('metodo_pago', 'No especificado')).strip()
-                    # Normalizamos la primera letra en mayúscula para agrupar "tarjeta" y "Tarjeta" de forma uniforme
                     metodo = metodo_raw.title() if metodo_raw else "No especificado"
                     
                     monto = float(p.get('monto_total', 0))
@@ -350,7 +349,6 @@ def mostrar_modulo_tracking():
                     cols_pagos = st.columns(len(desglose_pagos))
                     for i, (metodo, monto) in enumerate(desglose_pagos.items()):
                         with cols_pagos[i]:
-                            # Asignamos iconos representativos según el medio de pago
                             icono = "💳"
                             if "Efectivo" in metodo:
                                 icono = "💵"
@@ -363,5 +361,39 @@ def mostrar_modulo_tracking():
                 
                 st.divider()
                 st.markdown(f"**Total de pedidos en el rango:** `{len(pedidos_rango)}` (Cortesías: `{len(pedidos_rango) - len(ingresos_validos)}`)")
+                
+                # --- RECUPERACIÓN DE LA OPCIÓN DE DESCARGA DE REPORTE ---
+                st.markdown("---")
+                st.markdown("### 📥 Descargar Reporte de Ventas")
+                
+                # Preparamos un DataFrame limpio con los datos del rango para la exportación
+                datos_exportacion = []
+                for p in pedidos_rango:
+                    datos_exportacion.append({
+                        "Código": p.get('codigo_exacta', ''),
+                        "Fecha / Hora": p.get('created_at', ''),
+                        "Cliente": p.get('cliente', ''),
+                        "Tipo Entrega": p.get('tipo_entrega', ''),
+                        "Destino / Mesa": p.get('destino_entrega', ''),
+                        "Método de Pago": p.get('metodo_pago', ''),
+                        "Monto Total (S/.)": float(p.get('monto_total', 0)),
+                        "Cortesía": p.get('cortesia', 'No'),
+                        "Estado": p.get('estado', '')
+                    })
+                
+                df_reporte = pd.DataFrame(datos_exportacion)
+                
+                # Convertimos el DataFrame a CSV para descarga directa
+                csv_data = df_reporte.to_csv(index=False).encode('utf-8')
+                nombre_archivo = f"Reporte_Ventas_{fecha_inicio.strftime('%d%m%Y')}_al_{fecha_fin.strftime('%d%m%Y')}.csv"
+                
+                st.download_button(
+                    label="📥 Descargar Reporte en CSV",
+                    data=csv_data,
+                    file_name=nombre_archivo,
+                    mime="text/csv",
+                    use_container_width=True,
+                    type="primary"
+                )
             else:
                 st.info("No se registran ventas para el rango de fechas seleccionado.")
