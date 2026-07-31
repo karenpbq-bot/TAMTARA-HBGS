@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from database import conectar
-from datetime import datetime
+from datetime import datetime, date
 
 @st.dialog("📋 Detalle del Pedido")
 def mostrar_ventana_emergente_detalle(pedido):
@@ -25,7 +25,7 @@ def mostrar_ventana_emergente_detalle(pedido):
     st.divider()
 
 def mostrar_modulo_tracking():
-    # --- CSS AVANZADO: ELIMINACIÓN RADICAL DE MARCOS Y CONTENEDORES DE BOTONES ---
+    # --- CSS AVANZADO: MEJORA DE VISIBILIDAD EN PESTAÑAS Y BOTONES ---
     st.markdown("""
         <style>
             div.block-container {
@@ -60,42 +60,11 @@ def mostrar_modulo_tracking():
                 color: #28a745 !important;
                 font-weight: bold !important;
             }
-            /* ANULACIÓN TOTAL DE MARCOS NATIVOS EN BOTONES */
             [data-testid="stButton"] {
                 width: 100% !important;
                 display: flex !important;
                 justify-content: center !important;
                 align-items: center !important;
-            }
-            [data-testid="stButton"] button {
-                background: transparent !important;
-                background-color: transparent !important;
-                border: none !important;
-                border-color: transparent !important;
-                box-shadow: none !important;
-                outline: none !important;
-                padding: 0px !important;
-                margin: 0px !important;
-                font-size: 1.15rem !important;
-                font-weight: bold !important;
-                color: #495057 !important;
-                min-height: 32px !important;
-                max-height: 32px !important;
-                width: 100% !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
-            [data-testid="stButton"] button:hover {
-                background-color: #e9ecef !important;
-                color: #000000 !important;
-                border-radius: 4px !important;
-                border: none !important;
-            }
-            [data-testid="stButton"] button:active, [data-testid="stButton"] button:focus {
-                border: none !important;
-                outline: none !important;
-                box-shadow: none !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -106,7 +75,6 @@ def mostrar_modulo_tracking():
         res = db.table("pedidos").select("*").order("id").execute()
         todos_los_pedidos = res.data if res.data else []
         
-        # Corrección: Extraer el prefijo de fecha a partir de la fecha real de creación (created_at)
         for p in todos_los_pedidos:
             created_at_str = p.get('created_at')
             if created_at_str and len(created_at_str) >= 10:
@@ -124,33 +92,36 @@ def mostrar_modulo_tracking():
         st.error(f"Error al conectar con la base de datos: {e}")
         return
 
-    # --- FILA 1: SELECTOR DE VISTAS Y BOTÓN DE ACTUALIZACIÓN ---
-    c_head1, c_head2 = st.columns([0.8, 0.2])
+    # --- ENCABEZADO: SELECTOR DE VISTAS Y BOTÓN DE ACTUALIZACIÓN VISIBLES ---
+    c_head1, c_head2 = st.columns([0.75, 0.25])
     with c_head1:
         navegacion = st.radio(
             "Seleccione Vista:",
             ["🔥 Pedidos en Proceso", "🗄️ Pedidos Cerrados", "📈 Informe de Ventas"], 
-            horizontal=True,
-            label_visibility="collapsed"
+            horizontal=True
         )
     with c_head2:
-        if st.button("🔄 Actualizar", use_container_width=True, help="Refresca el tablero en tiempo real"):
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔄 Actualizar", use_container_width=True, help="Refresca el tablero en tiempo real", type="secondary"):
             st.rerun()
         
-    # --- FILA 2: FILTRO UNIVERSAL ---
-    busqueda = st.text_input(
-        "", 
-        placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
-        label_visibility="collapsed"
-    ).strip().lower()
+    # --- FILA 2: FILTRO UNIVERSAL (SOLO PARA KANBAN / CERRADOS) ---
+    if navegacion != "📈 Informe de Ventas":
+        busqueda = st.text_input(
+            "", 
+            placeholder="🔍 Filtrar inmediatamente por código, cliente o mesa...", 
+            label_visibility="collapsed"
+        ).strip().lower()
 
-    st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-    if busqueda:
-        pedidos_filtrados = [
-            p for p in todos_los_pedidos 
-            if busqueda in f"{p['codigo_exacta']} {p['cliente']} {p.get('destino_entrega','')}".lower()
-        ]
+        if busqueda:
+            pedidos_filtrados = [
+                p for p in todos_los_pedidos 
+                if busqueda in f"{p['codigo_exacta']} {p['cliente']} {p.get('destino_entrega','')}".lower()
+            ]
+        else:
+            pedidos_filtrados = todos_los_pedidos
     else:
         pedidos_filtrados = todos_los_pedidos
 
@@ -181,7 +152,6 @@ def mostrar_modulo_tracking():
 
         col1, col2, col3, col4 = st.columns(4)
 
-        # Función con jerarquía estricta: Principales primero, bebidas después
         def obtener_resumen_jerarquizado(p):
             principales = []
             bebidas = []
@@ -334,19 +304,51 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # CASO 3: INFORME DE VENTAS
+    # CASO 3: INFORME DE VENTAS (CORREGIDO Y FILTRADO)
     # ==========================================
     elif navegacion == "📈 Informe de Ventas":
         st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Panel de Análisis Financiero y Exportación</p>', unsafe_allow_html=True)
+        
         with st.container(border=True):
             c_f1, c_f2, _ = st.columns([1, 1, 2])
-            fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY")
-            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY")
+            fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY", key="inf_f_ini")
+            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY", key="inf_f_fin")
 
-            pedidos_rango = [p for p in todos_los_pedidos if p.get('estado') == 'Entregado']
+            # FILTRADO ROBUSTO POR RANGO DE FECHAS (BASADO EN created_at)
+            pedidos_rango = []
+            for p in todos_los_pedidos:
+                created_str = p.get('created_at')
+                if created_str and len(created_str) >= 10:
+                    try:
+                        p_date = datetime.strptime(created_str[:10], "%Y-%m-%d").date()
+                        if fecha_inicio <= p_date <= fecha_fin:
+                            pedidos_rango.append(p)
+                    except:
+                        pass
+
             if pedidos_rango:
-                total_ingresos = sum(float(p.get('monto_total', 0)) for p in pedidos_rango if p.get('cortesia') != 'Sí')
+                # 1. Total ingresos reales (excluyendo cortesías)
+                ingresos_validos = [p for p in pedidos_rango if p.get('cortesia') != 'Sí']
+                total_ingresos = sum(float(p.get('monto_total', 0)) for p in ingresos_validos)
+                
                 st.divider()
-                st.metric("💰 Total Ingresos Reales", f"S/. {total_ingresos:.2f}")
+                st.metric("💰 Total Ingresos Reales (Rango Seleccionado)", f"S/. {total_ingresos:.2f}")
+                st.markdown("---")
+                st.markdown("### 📊 Desglose por Forma de Pago")
+                
+                # Agrupación y cálculo por método de pago
+                desglose_pagos = {}
+                for p in ingresos_validos:
+                    metodo = p.get('metodo_pago', 'No especificado')
+                    monto = float(p.get('monto_total', 0))
+                    desglose_pagos[metodo] = desglose_pagos.get(metodo, 0.0) + monto
+                
+                cols_pagos = st.columns(len(desglose_pagos) if len(desglose_pagos) > 0 else 1)
+                for i, (metodo, monto) in enumerate(desglose_pagos.items()):
+                    with cols_pagos[i % len(cols_pagos)]:
+                        st.metric(f"💳 {metodo}", f"S/. {monto:.2f}")
+                
+                st.divider()
+                st.markdown(f"**Total de pedidos en el rango:** `{len(pedidos_rango)}` (Cortesías: `{len(pedidos_rango) - len(ingresos_validos)}`)")
             else:
-                st.info("No se registran ventas para el rango seleccionado.")
+                st.info("No se registran ventas para el rango de fechas seleccionado.")
