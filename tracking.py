@@ -362,11 +362,10 @@ def mostrar_modulo_tracking():
                 st.divider()
                 st.markdown(f"**Total de pedidos en el rango:** `{len(pedidos_rango)}` (Cortesías: `{len(pedidos_rango) - len(ingresos_validos)}`)")
                 
-                # --- RECUPERACIÓN DE LA OPCIÓN DE DESCARGA DE REPORTE ---
+               # --- DESCARGA DE REPORTE EN FORMATO EXCEL (.xlsx) ---
                 st.markdown("---")
                 st.markdown("### 📥 Descargar Reporte de Ventas")
                 
-                # Preparamos un DataFrame limpio con los datos del rango para la exportación
                 datos_exportacion = []
                 for p in pedidos_rango:
                     datos_exportacion.append({
@@ -383,17 +382,19 @@ def mostrar_modulo_tracking():
                 
                 df_reporte = pd.DataFrame(datos_exportacion)
                 
-                # Convertimos el DataFrame a CSV para descarga directa
-                csv_data = df_reporte.to_csv(index=False).encode('utf-8')
-                nombre_archivo = f"Reporte_Ventas_{fecha_inicio.strftime('%d%m%Y')}_al_{fecha_fin.strftime('%d%m%Y')}.csv"
+                # Generación del archivo Excel en memoria usando BytesIO
+                output_excel = io.BytesIO()
+                with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
+                    df_reporte.to_excel(writer, index=False, sheet_name='Reporte de Ventas')
+                
+                excel_data = output_excel.getvalue()
+                nombre_archivo_excel = f"Reporte_Ventas_{fecha_inicio.strftime('%d%m%Y')}_al_{fecha_fin.strftime('%d%m%Y')}.xlsx"
                 
                 st.download_button(
-                    label="📥 Descargar Reporte en CSV",
-                    data=csv_data,
-                    file_name=nombre_archivo,
-                    mime="text/csv",
+                    label="📥 Descargar Reporte en Excel (.xlsx)",
+                    data=excel_data,
+                    file_name=nombre_archivo_excel,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                     type="primary"
                 )
-            else:
-                st.info("No se registran ventas para el rango de fechas seleccionado.")
