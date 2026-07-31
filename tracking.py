@@ -304,7 +304,7 @@ def mostrar_modulo_tracking():
                             st.rerun()
 
     # ==========================================
-    # CASO 3: INFORME DE VENTAS (CORREGIDO Y FILTRADO)
+    # CASO 3: INFORME DE VENTAS (ROBUSTO Y NORMALIZADO)
     # ==========================================
     elif navegacion == "📈 Informe de Ventas":
         st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Panel de Análisis Financiero y Exportación</p>', unsafe_allow_html=True)
@@ -334,19 +334,32 @@ def mostrar_modulo_tracking():
                 st.divider()
                 st.metric("💰 Total Ingresos Reales (Rango Seleccionado)", f"S/. {total_ingresos:.2f}")
                 st.markdown("---")
-                st.markdown("### 📊 Desglose por Forma de Pago")
+                st.markdown("### 📊 Desglose por Forma de Pago (Normalizado)")
                 
-                # Agrupación y cálculo por método de pago
+                # Agrupación y normalización estricta por método de pago (para evitar duplicados por mayúsculas/minúsculas)
                 desglose_pagos = {}
                 for p in ingresos_validos:
-                    metodo = p.get('metodo_pago', 'No especificado')
+                    metodo_raw = str(p.get('metodo_pago', 'No especificado')).strip()
+                    # Normalizamos la primera letra en mayúscula para agrupar "tarjeta" y "Tarjeta" de forma uniforme
+                    metodo = metodo_raw.title() if metodo_raw else "No especificado"
+                    
                     monto = float(p.get('monto_total', 0))
                     desglose_pagos[metodo] = desglose_pagos.get(metodo, 0.0) + monto
                 
-                cols_pagos = st.columns(len(desglose_pagos) if len(desglose_pagos) > 0 else 1)
-                for i, (metodo, monto) in enumerate(desglose_pagos.items()):
-                    with cols_pagos[i % len(cols_pagos)]:
-                        st.metric(f"💳 {metodo}", f"S/. {monto:.2f}")
+                if desglose_pagos:
+                    cols_pagos = st.columns(len(desglose_pagos))
+                    for i, (metodo, monto) in enumerate(desglose_pagos.items()):
+                        with cols_pagos[i]:
+                            # Asignamos iconos representativos según el medio de pago
+                            icono = "💳"
+                            if "Efectivo" in metodo:
+                                icono = "💵"
+                            elif "Yape" in metodo or "Plin" in metodo:
+                                icono = "📱"
+                            elif "Tarjeta" in metodo:
+                                icono = "💳"
+                                
+                            st.metric(f"{icono} {metodo}", f"S/. {monto:.2f}")
                 
                 st.divider()
                 st.markdown(f"**Total de pedidos en el rango:** `{len(pedidos_rango)}` (Cortesías: `{len(pedidos_rango) - len(ingresos_validos)}`)")
