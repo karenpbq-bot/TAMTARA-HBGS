@@ -177,8 +177,8 @@ def mostrar_modulo_tracking():
                     cx1, cx2, cx3, cx4 = st.columns([0.64, 0.12, 0.12, 0.12])
                     detalle_str = obtener_resumen_jerarquizado(p)
                     
-                    # Etiqueta visual si está pendiente de pago
-                    tag_pendiente = ' <span style="color: #d9534f; font-weight: bold;">[PAGO PENDIENTE]</span>' if p.get('estado_pago') == 'Pendiente' else ''
+                    # Etiqueta visual sutil [P] en rojo si está pendiente de pago
+                    tag_pendiente = ' <span style="color: #d9534f; font-weight: bold;">[P]</span>' if p.get('estado_pago') == 'Pendiente' else ''
                     detalle_html = f'<br><small style="color: #666;">📝 {detalle_str}</small>{tag_pendiente}' if (detalle_str or tag_pendiente) else ''
                     
                     with cx1:
@@ -187,14 +187,17 @@ def mostrar_modulo_tracking():
                         if st.button("📄", key=f"pop_coc_{p['id']}", use_container_width=True, help="Ver detalle"):
                             mostrar_ventana_emergente_detalle(p)
                     with cx3:
-                        # SI EL PEDIDO ESTÁ PENDIENTE DE PAGO, EL BOTÓN PERMITE COBRARLO / REGRESARLO A CAJA
+                        # SI ESTÁ PENDIENTE DE PAGO, REDIRIGE AL MENÚ (PASO 1) PARA AGREGAR PRODUCTOS
                         if p.get('estado_pago') == 'Pendiente':
-                            if st.button("💳", key=f"cobrar_kanban_{p['id']}", use_container_width=True, help="Registrar pago de este pedido pendiente"):
-                                db.table("pedidos").update({"estado_pago": "Pagado", "metodo_pago": "Efectivo"}).eq("id", p['id']).execute()
-                                st.success(f"✅ Pedido {p['codigo_exacta']} marcado como pagado.")
+                            if st.button("💳", key=f"cobrar_kanban_{p['id']}", use_container_width=True, help="Agregar más productos o cobrar"):
+                                st.session_state['carrito'] = p.get('items', [])
+                                st.session_state['cliente_actual'] = p.get('cliente', '')
+                                st.session_state['paso_pedido'] = 1  # ⬅️ Cambio clave: Volvemos al catálogo
+                                st.session_state['pedido_en_edicion_id'] = p['id']
+                                
+                                st.session_state['menu_activo_forzado'] = "Pedidos (Ventas)"
                                 st.rerun()
                         else:
-                            # Si ya está pagado, se comporta normal permitiendo eliminar
                             if st.button("🗑️", key=f"del_coc_{p['id']}", use_container_width=True, help="Eliminar pedido"):
                                 db.table("pedidos").delete().eq("id", p['id']).execute()
                                 st.rerun()
