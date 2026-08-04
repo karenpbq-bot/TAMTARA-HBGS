@@ -317,25 +317,22 @@ def mostrar_modulo_pedidos():
             st.write("### Datos de Auditoría")
             st.info(f"**Cliente:** {st.session_state['cliente_actual']}\n\n**Despacho:** {destino if destino else 'No indicado'}")
             
+            # 1. BOTÓN TRADICIONAL DE COBRO Y EMISIÓN DE TICKETS
             if st.button("🔥 CONFIRMAR COBRO Y EMITIR TICKETS", use_container_width=True, type="primary"):
                 if not es_cortesia and metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
                     st.error("⚠️ Registre el número de operación bancaria.")
                 else:
-                    # 1. Obtenemos el prefijo del día actual (Ej: "2907")
                     prefijo_hoy = datetime.now().strftime("%d%m")
                     
                     try:
-                        # 2. Consultamos cuántos pedidos ya existen hoy buscando por el prefijo en la base de datos
                         res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
                         cantidad_hoy = len(res_hoy.data) if res_hoy.data else 0
                         siguiente_correlativo = cantidad_hoy + 1
                     except Exception:
                         siguiente_correlativo = 1
                         
-                    # 3. Construimos el código único diario (Ej: 2907-001)
                     codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
                     
-                    # 4. Armamos el payload con el código exacto definitivo
                     pedido_payload = {
                         "cliente": st.session_state['cliente_actual'],
                         "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
@@ -348,12 +345,12 @@ def mostrar_modulo_pedidos():
                         "monto_recibido": monto_rec,
                         "vuelto": vuelto,
                         "estado": "En cocina",
+                        "estado_pago": "Pagado",  # Se marca explícitamente como pagado
                         "pedido_cerrado": "No",
                         "cortesia": "Sí" if es_cortesia else "No",
                         "codigo_exacta": codigo_ticket_impreso
                     }
                     
-                    # 5. Insertamos el pedido en Supabase
                     res_db = db.table("pedidos").insert(pedido_payload).execute()
                     id_pedido = res_db.data[0]['id'] if res_db.data else 999
                     
@@ -366,3 +363,40 @@ def mostrar_modulo_pedidos():
                     st.session_state.carrito = []
                     st.session_state.paso_pedido = 1
                     st.rerun()
+
+            st.markdown("<div style='margin: 10px 0;'></div>", unsafe_allow_html=True)
+
+            # 2. NUEVO BOTÓN: ENVIAR A COCINA CON PAGO PENDIENTE (SIN COBRO INMEDIATO)
+            if st.button("⚡ ENVIAR A COCINA (PAGO PENDIENTE)", use_container_width=True, type="secondary"):
+                prefijo_hoy = datetime.now().strftime("%d%m")
+                try:
+                    res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
+                    siguiente_correlativo = len(res_hoy.data) + 1 if res_hoy.data else 1
+                except:
+                    siguiente_correlativo = 1
+                    
+                codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
+                
+                pedido_payload_pendiente = {
+                    "cliente": st.session_state['cliente_actual'],
+                    "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
+                    "destino_entrega": destino,
+                    "telefono_contacto": telefono,
+                    "items": st.session_state.carrito,
+                    "metodo_pago": "Pendiente",
+                    "monto_total": total_calculado,
+                    "num_operacion": None,
+                    "monto_recibido": 0.0,
+                    "vuelto": 0.0,
+                    "estado": "En cocina",          # Pasa de frente al Kanban
+                    "estado_pago": "Pendiente",     # Marca interna para requerir cobro posterior
+                    "pedido_cerrado": "No",
+                    "cortesia": "No",
+                    "codigo_exacta": codigo_ticket_impreso
+                }
+                
+                db.table("pedidos").insert(pedido_payload_pendiente).execute()
+                st.success(f"🚀 Pedido N° {codigo_ticket_impreso} enviado a cocina con estado pendiente de pago.")
+                st.session_state.carrito = []
+                st.session_state.paso_pedido = 1
+                st.rerun()
