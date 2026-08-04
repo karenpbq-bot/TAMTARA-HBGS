@@ -35,14 +35,10 @@ def login_manager():
 
         col_espacio, col_candado = st.columns([0.9, 0.1])
         with col_candado:
-            with st.popover("🔐", help="Admin"):
-                password = st.text_input("Clave", type="password")
-                if st.button("Entrar"):
-                    if password == "123":
-                        st.session_state['autenticado'] = True
-                        st.session_state['rol'] = 'admin'
-                        st.rerun()
-                    else:
-                        st.error("Incorrecto")
+            # Acceso directo como administrador al presionar el icono del candado
+            if st.button("🔐", help="Acceso Admin Directo", use_container_width=True):
+                st.session_state['autenticado'] = True
+                st.session_state['rol'] = 'admin'
+                st.rerun()
     
     return st.session_state['autenticado'], st.session_state['rol']
