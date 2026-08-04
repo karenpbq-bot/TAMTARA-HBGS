@@ -32,7 +32,7 @@ if autenticado:
         # Menú lateral visible directamente sin desplegables
         menu = st.sidebar.radio(
             "Seleccione un Módulo", 
-            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"],
+            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Comandas Pendientes", "Tracking de Pedidos"],
             label_visibility="collapsed"
         )
         
@@ -48,6 +48,9 @@ if autenticado:
             mostrar_modulo_carta()
         elif menu == "Pedidos (Ventas)":
             mostrar_modulo_pedidos()
+        elif menu == "Comandas Pendientes":
+            from comandas_pendientes import mostrar_modulo_comandas_pendientes
+            mostrar_modulo_comandas_pendientes()
         elif menu == "Tracking de Pedidos":
             mostrar_modulo_tracking()
             
