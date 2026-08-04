@@ -29,12 +29,22 @@ if autenticado:
             
         st.sidebar.title("🎛️ Panel Admin")
         
-        # Menú lateral visible directamente sin desplegables
+        # ==========================================================
+        # 🟢 PEGA EL INTERCEPTOR AQUÍ (JUSTO ANTES DEL RADIO)
+        # ==========================================================
+        if 'menu_activo_forzado' in st.session_state:
+            menu_destino = st.session_state['menu_activo_forzado']
+            del st.session_state['menu_activo_forzado']
+            st.session_state['radio_menu_select'] = menu_destino # Forzamos el estado del radio
+
+        # Menú lateral conectado al estado de sesión
         menu = st.sidebar.radio(
             "Seleccione un Módulo", 
-            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Comandas Pendientes", "Tracking de Pedidos"],
-            label_visibility="collapsed"
+            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"],
+            label_visibility="collapsed",
+            key="radio_menu_select" if 'radio_menu_select' in st.session_state else None
         )
+        # ==========================================================
         
         if menu == "Inicio":
             st.header("👑 Panel de Control")
@@ -48,9 +58,6 @@ if autenticado:
             mostrar_modulo_carta()
         elif menu == "Pedidos (Ventas)":
             mostrar_modulo_pedidos()
-        elif menu == "Comandas Pendientes":
-            from comandas_pendientes import mostrar_modulo_comandas_pendientes
-            mostrar_modulo_comandas_pendientes()
         elif menu == "Tracking de Pedidos":
             mostrar_modulo_tracking()
             
