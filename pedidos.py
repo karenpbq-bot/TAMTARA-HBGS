@@ -315,88 +315,124 @@ def mostrar_modulo_pedidos():
 
         with c_pago2:
             st.write("### Datos de Auditoría")
-            st.info(f"**Cliente:** {st.session_state['cliente_actual']}\n\n**Despacho:** {destino if destino else 'No indicado'}")
+            st.info(f"**Cliente:** {st.session_state.get('cliente_actual', '')}\n\n**Despacho:** {destino if destino else 'No indicado'}")
             
-            # 1. BOTÓN TRADICIONAL DE COBRO Y EMISIÓN DE TICKETS
+            # Verificamos si este pedido viene desde el botón 💳 del Kanban
+            id_editando = st.session_state.get('pedido_en_edicion_id')
+            
+            # ==========================================
+            # 1. BOTÓN: CONFIRMAR COBRO DEFINITIVO
+            # ==========================================
             if st.button("🔥 CONFIRMAR COBRO Y EMITIR TICKETS", use_container_width=True, type="primary"):
                 if not es_cortesia and metodo in ["Yape / Plin", "Tarjeta"] and not num_op:
                     st.error("⚠️ Registre el número de operación bancaria.")
                 else:
-                    prefijo_hoy = datetime.now().strftime("%d%m")
+                    if id_editando:
+                        # ACTUALIZAMOS EL PEDIDO PENDIENTE (Se añadieron items y ahora sí se paga)
+                        db.table("pedidos").update({
+                            "items": st.session_state.carrito,
+                            "monto_total": total_calculado,
+                            "metodo_pago": metodo,
+                            "num_operacion": num_op,
+                            "monto_recibido": monto_rec,
+                            "vuelto": vuelto,
+                            "estado_pago": "Pagado",
+                            "cortesia": "Sí" if es_cortesia else "No"
+                        }).eq("id", id_editando).execute()
+                        st.success("✅ Pedido actualizado y marcado como PAGADO.")
+                        
+                        del st.session_state['pedido_en_edicion_id']
+                    else:
+                        # ES UN PEDIDO NUEVO DESDE CERO
+                        prefijo_hoy = datetime.now().strftime("%d%m")
+                        try:
+                            res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
+                            siguiente_correlativo = len(res_hoy.data) + 1 if res_hoy.data else 1
+                        except:
+                            siguiente_correlativo = 1
+                            
+                        codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
+                        
+                        pedido_payload = {
+                            "cliente": st.session_state['cliente_actual'],
+                            "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
+                            "destino_entrega": destino,
+                            "telefono_contacto": telefono,
+                            "items": st.session_state.carrito,
+                            "metodo_pago": metodo,
+                            "monto_total": total_calculado,
+                            "num_operacion": num_op,
+                            "monto_recibido": monto_rec,
+                            "vuelto": vuelto,
+                            "estado": "En cocina",
+                            "estado_pago": "Pagado", 
+                            "pedido_cerrado": "No",
+                            "cortesia": "Sí" if es_cortesia else "No",
+                            "codigo_exacta": codigo_ticket_impreso
+                        }
+                        
+                        res_db = db.table("pedidos").insert(pedido_payload).execute()
+                        id_pedido = res_db.data[0]['id'] if res_db.data else 999
+                        st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado.")
+                        
+                        with st.spinner("Transmitiendo datos a ticketeras Advance..."):
+                            procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
                     
+                    st.balloons()
+                    st.session_state.carrito = []
+                    st.session_state.paso_pedido = 1
+                    st.session_state['cliente_actual'] = ''  # 🧹 Limpia el campo de cliente al finalizar
+                    st.rerun()
+
+            st.markdown("<div style='margin: 10px 0;'></div>", unsafe_allow_html=True)
+
+            # ==========================================
+            # 2. BOTÓN: ENVIAR / ACTUALIZAR EN COCINA (PAGO PENDIENTE)
+            # ==========================================
+            if st.button("⚡ ENVIAR A COCINA (PAGO PENDIENTE)", use_container_width=True, type="secondary"):
+                if id_editando:
+                    # CLIENTE PIDIÓ MÁS COSAS, ACTUALIZAMOS CARRITO Y TOTAL, PERO SIGUE PENDIENTE
+                    db.table("pedidos").update({
+                        "items": st.session_state.carrito,
+                        "monto_total": total_calculado,
+                        "estado": "En cocina"
+                    }).eq("id", id_editando).execute()
+                    
+                    st.success("✅ Cuenta actualizada con los nuevos productos.")
+                    del st.session_state['pedido_en_edicion_id']
+                else:
+                    # NUEVO PEDIDO PENDIENTE
+                    prefijo_hoy = datetime.now().strftime("%d%m")
                     try:
                         res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
-                        cantidad_hoy = len(res_hoy.data) if res_hoy.data else 0
-                        siguiente_correlativo = cantidad_hoy + 1
-                    except Exception:
+                        siguiente_correlativo = len(res_hoy.data) + 1 if res_hoy.data else 1
+                    except:
                         siguiente_correlativo = 1
                         
                     codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
                     
-                    pedido_payload = {
+                    pedido_payload_pendiente = {
                         "cliente": st.session_state['cliente_actual'],
                         "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
                         "destino_entrega": destino,
                         "telefono_contacto": telefono,
                         "items": st.session_state.carrito,
-                        "metodo_pago": metodo,
+                        "metodo_pago": "Pendiente",
                         "monto_total": total_calculado,
-                        "num_operacion": num_op,
-                        "monto_recibido": monto_rec,
-                        "vuelto": vuelto,
+                        "num_operacion": None,
+                        "monto_recibido": 0.0,
+                        "vuelto": 0.0,
                         "estado": "En cocina",
-                        "estado_pago": "Pagado",  # Se marca explícitamente como pagado
+                        "estado_pago": "Pendiente",
                         "pedido_cerrado": "No",
-                        "cortesia": "Sí" if es_cortesia else "No",
+                        "cortesia": "No",
                         "codigo_exacta": codigo_ticket_impreso
                     }
                     
-                    res_db = db.table("pedidos").insert(pedido_payload).execute()
-                    id_pedido = res_db.data[0]['id'] if res_db.data else 999
-                    
-                    st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado en base de datos.")
-                    
-                    with st.spinner("Transmitiendo datos a ticketeras Advance..."):
-                        procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
-                    
-                    st.balloons()
-                    st.session_state.carrito = []
-                    st.session_state.paso_pedido = 1
-                    st.rerun()
-
-            st.markdown("<div style='margin: 10px 0;'></div>", unsafe_allow_html=True)
-
-            # 2. NUEVO BOTÓN: ENVIAR A COCINA CON PAGO PENDIENTE (SIN COBRO INMEDIATO)
-            if st.button("⚡ ENVIAR A COCINA (PAGO PENDIENTE)", use_container_width=True, type="secondary"):
-                prefijo_hoy = datetime.now().strftime("%d%m")
-                try:
-                    res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
-                    siguiente_correlativo = len(res_hoy.data) + 1 if res_hoy.data else 1
-                except:
-                    siguiente_correlativo = 1
-                    
-                codigo_ticket_impreso = f"{prefijo_hoy}-{siguiente_correlativo:03d}"
+                    db.table("pedidos").insert(pedido_payload_pendiente).execute()
+                    st.success(f"🚀 Pedido N° {codigo_ticket_impreso} enviado a cocina con estado pendiente.")
                 
-                pedido_payload_pendiente = {
-                    "cliente": st.session_state['cliente_actual'],
-                    "tipo_entrega": "Mesa" if tipo_ent == "Mesa / Salón" else "Delivery",
-                    "destino_entrega": destino,
-                    "telefono_contacto": telefono,
-                    "items": st.session_state.carrito,
-                    "metodo_pago": "Pendiente",
-                    "monto_total": total_calculado,
-                    "num_operacion": None,
-                    "monto_recibido": 0.0,
-                    "vuelto": 0.0,
-                    "estado": "En cocina",          # Pasa de frente al Kanban
-                    "estado_pago": "Pendiente",     # Marca interna para requerir cobro posterior
-                    "pedido_cerrado": "No",
-                    "cortesia": "No",
-                    "codigo_exacta": codigo_ticket_impreso
-                }
-                
-                db.table("pedidos").insert(pedido_payload_pendiente).execute()
-                st.success(f"🚀 Pedido N° {codigo_ticket_impreso} enviado a cocina con estado pendiente de pago.")
                 st.session_state.carrito = []
                 st.session_state.paso_pedido = 1
+                st.session_state['cliente_actual'] = ''  # 🧹 Limpia el campo de cliente al finalizar
                 st.rerun()
