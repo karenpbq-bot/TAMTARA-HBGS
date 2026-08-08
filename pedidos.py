@@ -375,6 +375,28 @@ def mostrar_modulo_pedidos():
                         id_pedido = res_db.data[0]['id'] if res_db.data else 999
                         st.success(f"🎉 Pedido N° {codigo_ticket_impreso} registrado.")
                         
+                        # --- NUEVO: DESCUENTO AUTOMÁTICO DE KARDEX ---
+                        try:
+                            movimientos_salida = []
+                            for item_vendido in st.session_state.carrito:
+                                # Buscar receta del producto final vendido
+                                receta_prod = db.table("recetas").select("id_insumo, cantidad_requerida").eq("id_producto", item_vendido['id_producto']).execute()
+                                if receta_prod.data:
+                                    for ingrediente in receta_prod.data:
+                                        cant_consumida = float(ingrediente['cantidad_requerida']) * float(item_vendido['cantidad'])
+                                        movimientos_salida.append({
+                                            "insumo_id": ingrediente['id_insumo'], # Puede ser Materia Prima o Elaborado
+                                            "tipo_movimiento": "Salida Venta",
+                                            "cantidad": -cant_consumida, # SIEMPRE NEGATIVO PARA RESTAR STOCK
+                                            "costo_unitario": 0,
+                                            "referencia": f"Pedido {codigo_ticket_impreso}"
+                                        })
+                            if movimientos_salida:
+                                db.table("kardex_movimientos").insert(movimientos_salida).execute()
+                        except Exception as e:
+                            st.warning(f"El pedido se cobró, pero hubo un error al descontar del Kardex: {e}")
+                        # ------------------------------------------------
+                        
                         with st.spinner("Transmitiendo datos a ticketeras Advance..."):
                             procesar_impresion_comanda(id_pedido, codigo_ticket_impreso, pedido_payload, db)
                     
