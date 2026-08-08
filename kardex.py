@@ -30,7 +30,7 @@ def mostrar_modulo_kardex():
             c1, c2, c3 = st.columns(3)
             nom = c1.text_input("Nombre del Insumo / Precocido (*):")
             tipo = c2.selectbox("Clasificación:", ["Materia Prima", "Elaborado"])
-            und = c3.selectbox("Unidad de Medida:", ["Unidades", "Kilogramos", "Gramos", "Litros", "Mililitros"])
+            und = c3.selectbox("Unidad de Medida:", ["Unidades", "Kilogramos", "Gramos", "Litros", "Mililitros", "Porcion"])
             
             if st.form_submit_button("💾 Guardar en Catálogo", type="primary"):
                 if nom.strip():
