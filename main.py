@@ -3,7 +3,8 @@ import os
 from database import conectar
 from login import login_manager
 from pedidos import mostrar_modulo_pedidos
-from costos import mostrar_modulo_costos
+# from costos import mostrar_modulo_costos  <-- Desactivado, reemplazado por Kardex
+from kardex import mostrar_modulo_kardex
 from recetas import mostrar_modulo_recetas
 from carta import mostrar_modulo_carta
 from tracking import mostrar_modulo_tracking
@@ -40,7 +41,7 @@ if autenticado:
         # Menú lateral conectado al estado de sesión
         menu = st.sidebar.radio(
             "Seleccione un Módulo", 
-            ["Inicio", "Costos (Insumos)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"],
+            ["Inicio", "Kardex (Inventarios)", "Recetas (Proyectos)", "Carta", "Pedidos (Ventas)", "Tracking de Pedidos"],
             label_visibility="collapsed",
             key="radio_menu_select" if 'radio_menu_select' in st.session_state else None
         )
@@ -50,8 +51,8 @@ if autenticado:
             st.header("👑 Panel de Control")
             st.info("Bienvenida al centro de mando de La Exacta. Usa el menú lateral para gestionar tu negocio.")
         
-        elif menu == "Costos (Insumos)":
-            mostrar_modulo_costos()
+        elif menu == "Kardex (Inventarios)":
+            mostrar_modulo_kardex()
         elif menu == "Recetas (Proyectos)":
             mostrar_modulo_recetas()
         elif menu == "Carta":
