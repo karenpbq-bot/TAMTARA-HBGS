@@ -85,8 +85,8 @@ def mostrar_modulo_recetas():
     # 4. VISUALIZACIÓN DE LA RECETA ACTUAL
     st.subheader("📋 Composición y Costos Parciales")
     
-    # Consulta a base de datos usando el filtro dinámico (id_producto o id_insumo_elaborado)
-    receta_data = db.table("recetas").select("id, cantidad_requerida, insumos(nombre, costo_unitario, unidad_medida)").eq(filtro_db["columna"], filtro_db["valor"]).execute()
+    # Consulta a base de datos usando el filtro dinámico y resolviendo la ambigüedad de la Foreign Key (!id_insumo)
+    receta_data = db.table("recetas").select("id, cantidad_requerida, insumos!id_insumo(nombre, costo_unitario, unidad_medida)").eq(filtro_db["columna"], filtro_db["valor"]).execute()
     
     if receta_data.data:
         filas = []
