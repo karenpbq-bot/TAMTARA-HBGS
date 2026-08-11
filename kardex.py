@@ -22,7 +22,7 @@ def mostrar_modulo_kardex():
     db = conectar()
 
     # ==========================================
-    # PESTAÑA 1: CATÁLOGO MAESTRO (Reemplaza a costos.py)
+    # PESTAÑA 1: CATÁLOGO MAESTRO (Registro, Edición y Eliminación)
     # ==========================================
     with tab_catalogo:
         st.subheader("Registrar Nuevo Insumo o Elaborado")
@@ -38,12 +38,64 @@ def mostrar_modulo_kardex():
                         "nombre": nom.strip(),
                         "tipo": tipo,
                         "unidad_medida": und,
-                        "costo_unitario": 0.0 # El costo real se calculará en el Kardex
+                        "costo_unitario": 0.0
                     }).execute()
                     st.success(f"✅ {nom} registrado en el catálogo.")
                     st.rerun()
                 else:
                     st.error("El nombre es obligatorio.")
+
+        st.divider()
+        st.subheader("📋 Gestión del Catálogo (Editar / Eliminar)")
+        
+        # Obtenemos todos los insumos registrados
+        res_cat = db.table("insumos").select("*").order("nombre").execute()
+        
+        if res_cat and res_cat.data:
+            for item in res_cat.data:
+                item_id = item['id']
+                item_nom = item['nombre']
+                item_tipo = item.get('tipo', 'Materia Prima')
+                item_und = item.get('unidad_medida', 'Unidades')
+                
+                with st.container(border=True):
+                    col_info, col_del = st.columns([4, 1])
+                    
+                    with col_info:
+                        st.markdown(f"**{item_nom}** — *{item_tipo}* ({item_und})")
+                    
+                    with col_del:
+                        if st.button("🗑️ Eliminar", key=f"del_cat_{item_id}", help="Borrar del catálogo"):
+                            try:
+                                db.table("insumos").delete().eq("id", item_id).execute()
+                                st.success("Elemento eliminado.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error("❌ No se puede borrar: Este insumo ya tiene movimientos en el Kardex o recetas vinculadas.")
+                    
+                    # Desplegable para editar
+                    with st.expander(f"✏️ Editar: {item_nom}"):
+                        with st.form(f"edit_form_{item_id}"):
+                            e1, e2, e3 = st.columns(3)
+                            n_nom = e1.text_input("Nombre:", value=item_nom)
+                            
+                            idx_tipo = ["Materia Prima", "Elaborado"].index(item_tipo) if item_tipo in ["Materia Prima", "Elaborado"] else 0
+                            n_tipo = e2.selectbox("Clasificación:", ["Materia Prima", "Elaborado"], index=idx_tipo)
+                            
+                            unidades_list = ["Unidades", "Kilogramos", "Gramos", "Litros", "Mililitros", "Porcion"]
+                            idx_und = unidades_list.index(item_und) if item_und in unidades_list else 0
+                            n_und = e3.selectbox("Unidad:", unidades_list, index=idx_und)
+                            
+                            if st.form_submit_button("Actualizar Registro"):
+                                db.table("insumos").update({
+                                    "nombre": n_nom.strip(),
+                                    "tipo": n_tipo,
+                                    "unidad_medida": n_und
+                                }).eq("id", item_id).execute()
+                                st.success("Registro actualizado.")
+                                st.rerun()
+        else:
+            st.info("El catálogo está vacío.")
 
     # ==========================================
     # PESTAÑA 2: INGRESOS POR COMPRA (Abastecimiento)
