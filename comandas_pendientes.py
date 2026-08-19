@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
 from database import conectar, obtener_productos
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+# Declaramos la zona horaria fija de Perú (UTC-5)
+ZONA_PERU = timezone(timedelta(hours=-5))
 
 def mostrar_modulo_comandas_pendientes():
     st.markdown("### 📝 Pedidos Generados (Pendientes de Pago / Consumo Abierto)")
@@ -74,7 +77,7 @@ def mostrar_modulo_comandas_pendientes():
                         "estado": "Generado",
                         "pedido_cerrado": "No",
                         "cortesia": "No",
-                        "codigo_exacta": f"GEN-{datetime.now().strftime('%H%M%S')}"
+                        "codigo_exacta": f"GEN-{datetime.now(ZONA_PERU).strftime('%H%M%S')}" # <--- AQUÍ ESTÁ EL CAMBIO
                     }
                     db.table("pedidos").insert(nuevo_payload).execute()
                     st.success("✅ Pedido generado guardado con éxito. Está pendiente de pago y oculto del Kanban.")
