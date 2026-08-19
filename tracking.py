@@ -2,7 +2,10 @@ import streamlit as st
 import pandas as pd
 import io
 from database import conectar
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
+
+# Declaramos la zona horaria fija de Perú (UTC-5)
+ZONA_PERU = timezone(timedelta(hours=-5))
 
 @st.dialog("📋 Detalle del Pedido")
 def mostrar_ventana_emergente_detalle(pedido):
@@ -83,9 +86,9 @@ def mostrar_modulo_tracking():
                     dt_creacion = datetime.strptime(created_at_str[:10], "%Y-%m-%d")
                     prefijo_fecha = dt_creacion.strftime("%d%m")
                 except:
-                    prefijo_fecha = datetime.now().strftime("%d%m")
+                    prefijo_fecha = datetime.now(ZONA_PERU).strftime("%d%m")
             else:
-                prefijo_fecha = datetime.now().strftime("%d%m")
+                prefijo_fecha = datetime.now(ZONA_PERU).strftime("%d%m")
                 
             p['codigo_exacta'] = f"{prefijo_fecha}-{int(p['id']):03d}"
             
@@ -326,8 +329,8 @@ def mostrar_modulo_tracking():
         
         with st.container(border=True):
             c_f1, c_f2, _ = st.columns([1, 1, 2])
-            fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now().date(), format="DD/MM/YYYY", key="inf_f_ini")
-            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now().date(), format="DD/MM/YYYY", key="inf_f_fin")
+            fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_ini")
+            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_fin")
 
             # FILTRADO ROBUSTO POR RANGO DE FECHAS (BASADO EN created_at)
             pedidos_rango = []
