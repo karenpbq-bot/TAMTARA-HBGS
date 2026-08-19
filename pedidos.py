@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
 from database import conectar, obtener_productos
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+# Declaramos la zona horaria fija de Perú (UTC-5)
+ZONA_PERU = timezone(timedelta(hours=-5))
 
 # =====================================================================
 # MODULO DE AUDITORÍA Y CONTROL DE IMPRESIÓN (TICKETERAS ADVANCE)
