@@ -281,7 +281,8 @@ def mostrar_modulo_tracking():
     # CASO 2: PEDIDOS CERRADOS CON HISTORIAL
     # ==========================================
     elif navegacion == "🗄️ Pedidos Cerrados":
-        archivados_del_turno = [p for p in todos_los_pedidos if p.get('pedido_cerrado') == 'Sí']
+        # Extraemos los cerrados y aplicamos slicing inverso [::-1] para mostrar los más recientes arriba
+        archivados_del_turno = [p for p in todos_los_pedidos if p.get('pedido_cerrado') == 'Sí'][::-1]
         
         c_inf1, c_inf2, c_inf3 = st.columns([0.25, 0.45, 0.30])
         with c_inf1:
