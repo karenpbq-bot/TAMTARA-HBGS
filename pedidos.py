@@ -68,7 +68,7 @@ def procesar_impresion_comanda(pedido_id, codigo_ticket, pedido_payload, db):
             
         db.table("pedidos").update({
             "impreso": True, 
-            "fecha_impresion": datetime.now().isoformat()
+            "fecha_impresion": datetime.now(ZONA_PERU).isoformat()
         }).eq("id", pedido_id).execute()
         
         st.success("🎯 Comandas enviadas e impresas con éxito en Caja y Cocina.")
@@ -347,7 +347,7 @@ def mostrar_modulo_pedidos():
                         del st.session_state['pedido_en_edicion_id']
                     else:
                         # ES UN PEDIDO NUEVO DESDE CERO
-                        prefijo_hoy = datetime.now().strftime("%d%m")
+                        prefijo_hoy = datetime.now(ZONA_PERU).strftime("%d%m")
                         try:
                             res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
                             siguiente_correlativo = len(res_hoy.data) + 1 if res_hoy.data else 1
@@ -427,7 +427,7 @@ def mostrar_modulo_pedidos():
                     del st.session_state['pedido_en_edicion_id']
                 else:
                     # NUEVO PEDIDO PENDIENTE
-                    prefijo_hoy = datetime.now().strftime("%d%m")
+                    prefijo_hoy = datetime.now(ZONA_PERU).strftime("%d%m")
                     try:
                         res_hoy = db.table("pedidos").select("id", count="exact").like("codigo_exacta", f"{prefijo_hoy}%").execute()
                         siguiente_correlativo = len(res_hoy.data) + 1 if res_hoy.data else 1
