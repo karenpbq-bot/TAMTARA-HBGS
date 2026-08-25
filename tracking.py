@@ -363,22 +363,35 @@ def mostrar_modulo_tracking():
                     nombre_prod = item.get('nombre', 'Desconocido')
                     cant = int(item.get('cantidad', 0))
                     
-                    # Identificación automática de categoría (Heurística)
+                    # 1. Identificación automática de categoría (Heurística)
                     nombre_inf = nombre_prod.lower()
                     if any(b in nombre_inf for b in ['cola', 'fanta', 'sprite', 'agua', 'energina', 'chicha', 'inka', 'bebida', 'jugo', 'cerveza', 'limonada']):
                         categoria = 'Bebidas'
                     else:
                         categoria = 'Principales'
                     
-                    # Cálculo del subtotal incluyendo adicionales
-                    p_ad = sum(float(a.get('precio', 0)) for a in item.get('adicionales', []))
-                    subtotal = (float(item.get('precio_base', 0)) + p_ad) * cant
+                    # 2. Separamos el subtotal del producto principal (SIN los adicionales)
+                    subtotal_prin = float(item.get('precio_base', 0)) * cant
                     
                     if nombre_prod not in diccionario_ventas:
                         diccionario_ventas[nombre_prod] = {"Cantidad": 0, "Monto Total (S/.)": 0.0, "Categoría": categoria}
                     
                     diccionario_ventas[nombre_prod]["Cantidad"] += cant
-                    diccionario_ventas[nombre_prod]["Monto Total (S/.)"] += subtotal
+                    diccionario_ventas[nombre_prod]["Monto Total (S/.)"] += subtotal_prin
+                    
+                    # 3. Extracción de Adicionales (Ad Porción) como productos independientes
+                    for ad in item.get('adicionales', []):
+                        ad_nombre = ad.get('nombre', 'Adicional')
+                        ad_precio = float(ad.get('precio', 0.0))
+                        
+                        # Solo procesamos los que tienen costo (excluimos 'Ad Gratis')
+                        if ad_precio > 0:
+                            ad_sub = ad_precio * cant
+                            if ad_nombre not in diccionario_ventas:
+                                diccionario_ventas[ad_nombre] = {"Cantidad": 0, "Monto Total (S/.)": 0.0, "Categoría": "Ad Porción"}
+                            
+                            diccionario_ventas[ad_nombre]["Cantidad"] += cant
+                            diccionario_ventas[ad_nombre]["Monto Total (S/.)"] += ad_sub
 
             # Convertimos el diccionario a un DataFrame
             if diccionario_ventas:
@@ -427,14 +440,16 @@ def mostrar_modulo_tracking():
                 import plotly.express as px
                 fig_pie_prin = None
                 fig_pie_beb = None
+                fig_pie_ad = None
                 
                 if not df_productos.empty:
                     df_prin = df_productos[df_productos["Categoría"] == "Principales"]
                     df_beb = df_productos[df_productos["Categoría"] == "Bebidas"]
+                    df_ad = df_productos[df_productos["Categoría"] == "Ad Porción"]
                     
-                    tab_prin, tab_beb = st.tabs(["🍔 Productos Principales", "🥤 Bebidas"])
+                    tab_prin, tab_beb, tab_ad = st.tabs(["🍔 Principales", "🥤 Bebidas", "🍟 Ad Porción"])
                     
-                    # Pestaña de Productos Principales
+                    # Pestaña Principales
                     with tab_prin:
                         if not df_prin.empty:
                             cg1, cg2 = st.columns(2)
@@ -446,11 +461,11 @@ def mostrar_modulo_tracking():
                             with cg2:
                                 st.markdown("**Cantidades Vendidas**")
                                 df_bar_prin = df_prin.set_index('Producto')
-                                st.bar_chart(df_bar_prin['Cantidad'], color="#ff4b4b") # Color Rojo
+                                st.bar_chart(df_bar_prin['Cantidad'], color="#ff4b4b")
                         else:
                             st.info("No hay registros de ventas para productos principales.")
                             
-                    # Pestaña de Bebidas
+                    # Pestaña Bebidas
                     with tab_beb:
                         if not df_beb.empty:
                             cg3, cg4 = st.columns(2)
@@ -462,9 +477,25 @@ def mostrar_modulo_tracking():
                             with cg4:
                                 st.markdown("**Cantidades Vendidas**")
                                 df_bar_beb = df_beb.set_index('Producto')
-                                st.bar_chart(df_bar_beb['Cantidad'], color="#00a2ed") # Color Azul
+                                st.bar_chart(df_bar_beb['Cantidad'], color="#00a2ed")
                         else:
                             st.info("No hay registros de ventas para bebidas.")
+                            
+                    # Pestaña Ad Porción
+                    with tab_ad:
+                        if not df_ad.empty:
+                            cg5, cg6 = st.columns(2)
+                            with cg5:
+                                st.markdown("**Distribución de Ingresos (%)**")
+                                fig_pie_ad = px.pie(df_ad, values='Monto Total (S/.)', names='Producto', hole=0.4)
+                                fig_pie_ad.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+                                st.plotly_chart(fig_pie_ad, use_container_width=True)
+                            with cg6:
+                                st.markdown("**Cantidades Vendidas**")
+                                df_bar_ad = df_ad.set_index('Producto')
+                                st.bar_chart(df_bar_ad['Cantidad'], color="#ffc107") # Color Amarillo
+                        else:
+                            st.info("No hay registros de ventas para adicionales por porción.")
                 else:
                     st.info("No hay datos suficientes para generar gráficos.")
 
@@ -520,6 +551,8 @@ def mostrar_modulo_tracking():
                         html_graficos += f"<h3>Distribución: Productos Principales</h3>{fig_pie_prin.to_html(full_html=False, include_plotlyjs='cdn')}"
                     if fig_pie_beb is not None:
                         html_graficos += f"<h3>Distribución: Bebidas</h3>{fig_pie_beb.to_html(full_html=False, include_plotlyjs='cdn')}"
+                    if fig_pie_ad is not None:
+                        html_graficos += f"<h3>Distribución: Adicionales (Porción)</h3>{fig_pie_ad.to_html(full_html=False, include_plotlyjs='cdn')}"
                         
                     if html_graficos != "":
                         html_content = f"""
