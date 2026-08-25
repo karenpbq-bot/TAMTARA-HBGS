@@ -325,48 +325,72 @@ def mostrar_modulo_tracking():
                             db.table("pedidos").delete().eq("id", p['id']).execute()
                             st.rerun()
 
-    # ==========================================
-    # CASO 3: INFORME DE VENTAS (CON DESCARGA DE REPORTE)
+    ## ==========================================
+    # CASO 3: INFORME DE VENTAS Y ESTADÍSTICAS
     # ==========================================
     elif navegacion == "📈 Informe de Ventas":
-        st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Panel de Análisis Financiero y Exportación</p>', unsafe_allow_html=True)
+        st.markdown('<p class="titulo-carril" style="text-align:left; padding-left:15px; font-size:1rem !important;">📈 Dashboard de Ventas y Estadísticas</p>', unsafe_allow_html=True)
         
-        with st.container(border=True):
-            c_f1, c_f2, _ = st.columns([1, 1, 2])
-            fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_ini")
-            fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_fin")
+        # --- 1. FILTROS GLOBALES (Fuera de los expanders) ---
+        c_f1, c_f2, _ = st.columns([1, 1, 2])
+        fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_ini")
+        fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_fin")
 
-            # FILTRADO ROBUSTO POR RANGO DE FECHAS (Traduciendo UTC a ZONA_PERU)
-            pedidos_rango = []
-            for p in todos_los_pedidos:
-                created_str = p.get('created_at')
-                if created_str:
-                    try:
-                        dt_utc = datetime.strptime(created_str[:19], "%Y-%m-%dT%H:%M:%S")
-                        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
-                        p_date = dt_utc.astimezone(ZONA_PERU).date()
-                        
-                        if fecha_inicio <= p_date <= fecha_fin:
-                            pedidos_rango.append(p)
-                    except:
-                        pass
+        # FILTRADO ROBUSTO POR RANGO DE FECHAS (Traduciendo UTC a ZONA_PERU)
+        pedidos_rango = []
+        for p in todos_los_pedidos:
+            created_str = p.get('created_at')
+            if created_str:
+                try:
+                    dt_utc = datetime.strptime(created_str[:19], "%Y-%m-%dT%H:%M:%S")
+                    dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                    p_date = dt_utc.astimezone(ZONA_PERU).date()
+                    
+                    if fecha_inicio <= p_date <= fecha_fin:
+                        pedidos_rango.append(p)
+                except:
+                    pass
 
-            if pedidos_rango:
-                # 1. Total ingresos reales (excluyendo cortesías)
-                ingresos_validos = [p for p in pedidos_rango if p.get('cortesia') != 'Sí']
-                total_ingresos = sum(float(p.get('monto_total', 0)) for p in ingresos_validos)
-                
-                st.divider()
-                st.metric("💰 Total Ingresos Reales (Rango Seleccionado)", f"S/. {total_ingresos:.2f}")
+        if pedidos_rango:
+            # Excluimos cortesías y pedidos no pagados para el análisis financiero
+            ingresos_validos = [p for p in pedidos_rango if p.get('cortesia') != 'Sí' and p.get('estado_pago') == 'Pagado']
+            total_ingresos = sum(float(p.get('monto_total', 0)) for p in ingresos_validos)
+
+            # --- PRE-PROCESAMIENTO DE PRODUCTOS VENDIDOS ---
+            diccionario_ventas = {}
+            for p in ingresos_validos:
+                for item in p.get('items', []):
+                    nombre_prod = item.get('nombre', 'Desconocido')
+                    cant = int(item.get('cantidad', 0))
+                    
+                    # Cálculo del subtotal incluyendo adicionales
+                    p_ad = sum(float(a.get('precio', 0)) for a in item.get('adicionales', []))
+                    subtotal = (float(item.get('precio_base', 0)) + p_ad) * cant
+                    
+                    if nombre_prod not in diccionario_ventas:
+                        diccionario_ventas[nombre_prod] = {"Cantidad": 0, "Monto Total (S/.)": 0.0}
+                    
+                    diccionario_ventas[nombre_prod]["Cantidad"] += cant
+                    diccionario_ventas[nombre_prod]["Monto Total (S/.)"] += subtotal
+
+            # Convertimos el diccionario a un DataFrame
+            if diccionario_ventas:
+                df_productos = pd.DataFrame.from_dict(diccionario_ventas, orient='index').reset_index()
+                df_productos.rename(columns={'index': 'Producto'}, inplace=True)
+                df_productos = df_productos.sort_values(by="Monto Total (S/.)", ascending=False)
+            else:
+                df_productos = pd.DataFrame(columns=["Producto", "Cantidad", "Monto Total (S/.)"])
+
+            # --- 2. EXPANDER: ANÁLISIS FINANCIERO ---
+            with st.expander("💰 Panel de Análisis Financiero", expanded=True):
+                st.metric("Total Ingresos Reales (Rango Seleccionado)", f"S/. {total_ingresos:.2f}")
                 st.markdown("---")
-                st.markdown("### 📊 Desglose por Forma de Pago (Normalizado)")
+                st.markdown("#### 📊 Desglose por Forma de Pago")
                 
-                # Agrupación y normalización estricta por método de pago
                 desglose_pagos = {}
                 for p in ingresos_validos:
                     metodo_raw = str(p.get('metodo_pago', 'No especificado')).strip()
                     metodo = metodo_raw.title() if metodo_raw else "No especificado"
-                    
                     monto = float(p.get('monto_total', 0))
                     desglose_pagos[metodo] = desglose_pagos.get(metodo, 0.0) + monto
                 
@@ -375,51 +399,121 @@ def mostrar_modulo_tracking():
                     for i, (metodo, monto) in enumerate(desglose_pagos.items()):
                         with cols_pagos[i]:
                             icono = "💳"
-                            if "Efectivo" in metodo:
-                                icono = "💵"
-                            elif "Yape" in metodo or "Plin" in metodo:
-                                icono = "📱"
-                            elif "Tarjeta" in metodo:
-                                icono = "💳"
-                                
+                            if "Efectivo" in metodo: icono = "💵"
+                            elif "Yape" in metodo or "Plin" in metodo: icono = "📱"
                             st.metric(f"{icono} {metodo}", f"S/. {monto:.2f}")
                 
                 st.divider()
                 st.markdown(f"**Total de pedidos en el rango:** `{len(pedidos_rango)}` (Cortesías: `{len(pedidos_rango) - len(ingresos_validos)}`)")
+
+            # --- 3. EXPANDER: MATRIZ DE VENTAS POR PRODUCTO ---
+            with st.expander("🍔 Matriz de Ventas por Producto", expanded=False):
+                if not df_productos.empty:
+                    df_mostrar = df_productos.copy()
+                    df_mostrar["Monto Total (S/.)"] = df_mostrar["Monto Total (S/.)"].map(lambda x: f"S/. {x:,.2f}")
+                    st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No hay productos vendidos en este rango de fechas.")
+
+            # --- 4. EXPANDER: GRÁFICOS VISUALES ---
+            with st.expander("📈 Gráficos de Distribución", expanded=False):
+                import plotly.express as px
+                fig_pie = None
                 
-               # --- DESCARGA DE REPORTE EN FORMATO EXCEL (.xlsx) ---
-                st.markdown("---")
-                st.markdown("### 📥 Descargar Reporte de Ventas")
+                if not df_productos.empty:
+                    cg1, cg2 = st.columns(2)
+                    with cg1:
+                        st.markdown("**Distribución de Ingresos por Producto (%)**")
+                        fig_pie = px.pie(df_productos, values='Monto Total (S/.)', names='Producto', hole=0.4)
+                        fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig_pie, use_container_width=True)
+                        
+                    with cg2:
+                        st.markdown("**Cantidades Vendidas por Producto**")
+                        df_bar = df_productos.set_index('Producto')
+                        st.bar_chart(df_bar['Cantidad'], color="#28a745")
+                else:
+                    st.info("No hay datos suficientes para generar gráficos.")
+
+            # --- 5. EXPANDER: CENTRO DE EXPORTACIÓN ---
+            with st.expander("📥 Centro de Exportación de Reportes", expanded=False):
+                st.markdown("Seleccione el formato y tipo de información que desea exportar:")
+                ce1, ce2, ce3 = st.columns(3)
                 
-                datos_exportacion = []
-                for p in pedidos_rango:
-                    datos_exportacion.append({
-                        "Código": p.get('codigo_exacta', ''),
-                        "Fecha / Hora": p.get('created_at', ''),
-                        "Cliente": p.get('cliente', ''),
-                        "Tipo Entrega": p.get('tipo_entrega', ''),
-                        "Destino / Mesa": p.get('destino_entrega', ''),
-                        "Método de Pago": p.get('metodo_pago', ''),
-                        "Monto Total (S/.)": float(p.get('monto_total', 0)),
-                        "Cortesía": p.get('cortesia', 'No'),
-                        "Estado": p.get('estado', '')
-                    })
-                
-                df_reporte = pd.DataFrame(datos_exportacion)
-                
-                # Generación del archivo Excel en memoria usando BytesIO
-                output_excel = io.BytesIO()
-                with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
-                    df_reporte.to_excel(writer, index=False, sheet_name='Reporte de Ventas')
-                
-                excel_data = output_excel.getvalue()
-                nombre_archivo_excel = f"Reporte_Ventas_{fecha_inicio.strftime('%d%m%Y')}_al_{fecha_fin.strftime('%d%m%Y')}.xlsx"
-                
-                st.download_button(
-                    label="📥 Descargar Reporte en Excel (.xlsx)",
-                    data=excel_data,
-                    file_name=nombre_archivo_excel,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    type="primary"
-                )
+                # Reporte 1: Excel de Ventas Generales
+                with ce1:
+                    datos_exportacion = []
+                    for p in pedidos_rango:
+                        datos_exportacion.append({
+                            "Código": p.get('codigo_exacta', ''),
+                            "Fecha / Hora": p.get('created_at', ''),
+                            "Cliente": p.get('cliente', ''),
+                            "Destino / Mesa": p.get('destino_entrega', ''),
+                            "Método de Pago": p.get('metodo_pago', ''),
+                            "Monto Total (S/.)": float(p.get('monto_total', 0)),
+                            "Cortesía": p.get('cortesia', 'No'),
+                        })
+                    df_reporte = pd.DataFrame(datos_exportacion)
+                    out_excel_1 = io.BytesIO()
+                    with pd.ExcelWriter(out_excel_1, engine='openpyxl') as writer:
+                        df_reporte.to_excel(writer, index=False, sheet_name='Ventas')
+                    
+                    st.download_button(
+                        label="📄 Exportar Lista de Ventas (.xlsx)",
+                        data=out_excel_1.getvalue(),
+                        file_name=f"Ventas_{fecha_inicio.strftime('%d%m%Y')}_al_{fecha_fin.strftime('%d%m%Y')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+
+                # Reporte 2: Excel de Productos Vendidos
+                with ce2:
+                    out_excel_2 = io.BytesIO()
+                    with pd.ExcelWriter(out_excel_2, engine='openpyxl') as writer:
+                        df_productos.to_excel(writer, index=False, sheet_name='Productos')
+                    
+                    st.download_button(
+                        label="🍔 Exportar Productos Vendidos (.xlsx)",
+                        data=out_excel_2.getvalue(),
+                        file_name=f"Productos_Vendidos_{fecha_inicio.strftime('%d%m%Y')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+
+                # Reporte 3: Gráficos en HTML (Imprimible a PDF)
+                with ce3:
+                    if fig_pie is not None:
+                        html_content = f"""
+                        <html>
+                        <head>
+                            <title>Reporte de Ventas La Exacta</title>
+                            <style>
+                                body {{ font-family: Arial, sans-serif; padding: 20px; }}
+                                table {{ border-collapse: collapse; width: 100%; margin-bottom: 30px; }}
+                                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                                th {{ background-color: #f2f2f2; }}
+                            </style>
+                        </head>
+                        <body>
+                            <h2>Reporte Comercial: {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}</h2>
+                            <h3>1. Matriz de Productos Vendidos</h3>
+                            {df_productos.to_html(index=False)}
+                            <h3>2. Distribución de Ingresos</h3>
+                            {fig_pie.to_html(full_html=False, include_plotlyjs='cdn')}
+                            <p style="text-align: center; color: #888;"><i>Para guardar como PDF, presione Ctrl + P y seleccione 'Guardar como PDF'</i></p>
+                        </body>
+                        </html>
+                        """
+                        st.download_button(
+                            label="📈 Exportar Reporte + Gráficos (HTML/PDF)",
+                            data=html_content,
+                            file_name=f"Dashboard_Graficos_{fecha_inicio.strftime('%d%m%Y')}.html",
+                            mime="text/html",
+                            use_container_width=True,
+                            type="primary"
+                        )
+                    else:
+                        st.button("📈 Exportar Reporte + Gráficos (HTML/PDF)", disabled=True, use_container_width=True)
+
+        else:
+            st.info("No se encontraron registros de ventas en las fechas seleccionadas.")
