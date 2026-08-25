@@ -81,10 +81,13 @@ def mostrar_modulo_tracking():
         
         for p in todos_los_pedidos:
             created_at_str = p.get('created_at')
-            if created_at_str and len(created_at_str) >= 10:
+            if created_at_str:
                 try:
-                    dt_creacion = datetime.strptime(created_at_str[:10], "%Y-%m-%d")
-                    prefijo_fecha = dt_creacion.strftime("%d%m")
+                    # Capturamos el formato UTC de Supabase y lo forzamos a hora Perú
+                    dt_utc = datetime.strptime(created_at_str[:19], "%Y-%m-%dT%H:%M:%S")
+                    dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                    dt_peru = dt_utc.astimezone(ZONA_PERU)
+                    prefijo_fecha = dt_peru.strftime("%d%m")
                 except:
                     prefijo_fecha = datetime.now(ZONA_PERU).strftime("%d%m")
             else:
@@ -333,13 +336,16 @@ def mostrar_modulo_tracking():
             fecha_inicio = c_f1.date_input("Fecha de Inicio:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_ini")
             fecha_fin = c_f2.date_input("Fecha de Fin:", value=datetime.now(ZONA_PERU).date(), format="DD/MM/YYYY", key="inf_f_fin")
 
-            # FILTRADO ROBUSTO POR RANGO DE FECHAS (BASADO EN created_at)
+            # FILTRADO ROBUSTO POR RANGO DE FECHAS (Traduciendo UTC a ZONA_PERU)
             pedidos_rango = []
             for p in todos_los_pedidos:
                 created_str = p.get('created_at')
-                if created_str and len(created_str) >= 10:
+                if created_str:
                     try:
-                        p_date = datetime.strptime(created_str[:10], "%Y-%m-%d").date()
+                        dt_utc = datetime.strptime(created_str[:19], "%Y-%m-%dT%H:%M:%S")
+                        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                        p_date = dt_utc.astimezone(ZONA_PERU).date()
+                        
                         if fecha_inicio <= p_date <= fecha_fin:
                             pedidos_rango.append(p)
                     except:
