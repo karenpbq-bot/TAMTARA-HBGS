@@ -3,7 +3,8 @@ import pandas as pd
 from database import conectar, obtener_productos, subir_imagen_producto
 from PIL import Image, ImageOps
 import io
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+ZONA_PERU = timezone(timedelta(hours=-5))
 
 def procesar_y_comprimir_imagen(archivo_subido, calidad=75):
     try:
@@ -39,7 +40,7 @@ def mostrar_modulo_carta():
                 if foto:
                     buf = procesar_y_comprimir_imagen(foto)
                     if buf:
-                        ts = int(datetime.now().timestamp())
+                        ts = int(datetime.now(ZONA_PERU).timestamp())
                         nom_arc = f"prod_{nombre.lower().replace(' ','_')}_{ts}.jpg"
                         url_foto = subir_imagen_producto(buf, nom_arc)
                 
