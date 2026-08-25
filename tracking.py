@@ -363,12 +363,19 @@ def mostrar_modulo_tracking():
                     nombre_prod = item.get('nombre', 'Desconocido')
                     cant = int(item.get('cantidad', 0))
                     
+                    # Identificación automática de categoría (Heurística)
+                    nombre_inf = nombre_prod.lower()
+                    if any(b in nombre_inf for b in ['cola', 'fanta', 'sprite', 'agua', 'energina', 'chicha', 'inka', 'bebida', 'jugo', 'cerveza', 'limonada']):
+                        categoria = 'Bebidas'
+                    else:
+                        categoria = 'Principales'
+                    
                     # Cálculo del subtotal incluyendo adicionales
                     p_ad = sum(float(a.get('precio', 0)) for a in item.get('adicionales', []))
                     subtotal = (float(item.get('precio_base', 0)) + p_ad) * cant
                     
                     if nombre_prod not in diccionario_ventas:
-                        diccionario_ventas[nombre_prod] = {"Cantidad": 0, "Monto Total (S/.)": 0.0}
+                        diccionario_ventas[nombre_prod] = {"Cantidad": 0, "Monto Total (S/.)": 0.0, "Categoría": categoria}
                     
                     diccionario_ventas[nombre_prod]["Cantidad"] += cant
                     diccionario_ventas[nombre_prod]["Monto Total (S/.)"] += subtotal
@@ -379,7 +386,7 @@ def mostrar_modulo_tracking():
                 df_productos.rename(columns={'index': 'Producto'}, inplace=True)
                 df_productos = df_productos.sort_values(by="Monto Total (S/.)", ascending=False)
             else:
-                df_productos = pd.DataFrame(columns=["Producto", "Cantidad", "Monto Total (S/.)"])
+                df_productos = pd.DataFrame(columns=["Producto", "Cantidad", "Monto Total (S/.)", "Categoría"])
 
             # --- 2. EXPANDER: ANÁLISIS FINANCIERO ---
             with st.expander("💰 Panel de Análisis Financiero", expanded=True):
@@ -409,29 +416,55 @@ def mostrar_modulo_tracking():
             # --- 3. EXPANDER: MATRIZ DE VENTAS POR PRODUCTO ---
             with st.expander("🍔 Matriz de Ventas por Producto", expanded=False):
                 if not df_productos.empty:
-                    df_mostrar = df_productos.copy()
+                    df_mostrar = df_productos.drop(columns=["Categoría"]).copy()
                     df_mostrar["Monto Total (S/.)"] = df_mostrar["Monto Total (S/.)"].map(lambda x: f"S/. {x:,.2f}")
                     st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
                 else:
                     st.info("No hay productos vendidos en este rango de fechas.")
 
-            # --- 4. EXPANDER: GRÁFICOS VISUALES ---
+            # --- 4. EXPANDER: GRÁFICOS VISUALES (DIVIDIDOS POR PESTAÑAS) ---
             with st.expander("📈 Gráficos de Distribución", expanded=False):
                 import plotly.express as px
-                fig_pie = None
+                fig_pie_prin = None
+                fig_pie_beb = None
                 
                 if not df_productos.empty:
-                    cg1, cg2 = st.columns(2)
-                    with cg1:
-                        st.markdown("**Distribución de Ingresos por Producto (%)**")
-                        fig_pie = px.pie(df_productos, values='Monto Total (S/.)', names='Producto', hole=0.4)
-                        fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig_pie, use_container_width=True)
-                        
-                    with cg2:
-                        st.markdown("**Cantidades Vendidas por Producto**")
-                        df_bar = df_productos.set_index('Producto')
-                        st.bar_chart(df_bar['Cantidad'], color="#28a745")
+                    df_prin = df_productos[df_productos["Categoría"] == "Principales"]
+                    df_beb = df_productos[df_productos["Categoría"] == "Bebidas"]
+                    
+                    tab_prin, tab_beb = st.tabs(["🍔 Productos Principales", "🥤 Bebidas"])
+                    
+                    # Pestaña de Productos Principales
+                    with tab_prin:
+                        if not df_prin.empty:
+                            cg1, cg2 = st.columns(2)
+                            with cg1:
+                                st.markdown("**Distribución de Ingresos (%)**")
+                                fig_pie_prin = px.pie(df_prin, values='Monto Total (S/.)', names='Producto', hole=0.4)
+                                fig_pie_prin.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+                                st.plotly_chart(fig_pie_prin, use_container_width=True)
+                            with cg2:
+                                st.markdown("**Cantidades Vendidas**")
+                                df_bar_prin = df_prin.set_index('Producto')
+                                st.bar_chart(df_bar_prin['Cantidad'], color="#ff4b4b") # Color Rojo
+                        else:
+                            st.info("No hay registros de ventas para productos principales.")
+                            
+                    # Pestaña de Bebidas
+                    with tab_beb:
+                        if not df_beb.empty:
+                            cg3, cg4 = st.columns(2)
+                            with cg3:
+                                st.markdown("**Distribución de Ingresos (%)**")
+                                fig_pie_beb = px.pie(df_beb, values='Monto Total (S/.)', names='Producto', hole=0.4)
+                                fig_pie_beb.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+                                st.plotly_chart(fig_pie_beb, use_container_width=True)
+                            with cg4:
+                                st.markdown("**Cantidades Vendidas**")
+                                df_bar_beb = df_beb.set_index('Producto')
+                                st.bar_chart(df_bar_beb['Cantidad'], color="#00a2ed") # Color Azul
+                        else:
+                            st.info("No hay registros de ventas para bebidas.")
                 else:
                     st.info("No hay datos suficientes para generar gráficos.")
 
@@ -470,7 +503,7 @@ def mostrar_modulo_tracking():
                 with ce2:
                     out_excel_2 = io.BytesIO()
                     with pd.ExcelWriter(out_excel_2, engine='openpyxl') as writer:
-                        df_productos.to_excel(writer, index=False, sheet_name='Productos')
+                        df_productos.drop(columns=["Categoría"], errors="ignore").to_excel(writer, index=False, sheet_name='Productos')
                     
                     st.download_button(
                         label="🍔 Exportar Productos Vendidos (.xlsx)",
@@ -482,7 +515,13 @@ def mostrar_modulo_tracking():
 
                 # Reporte 3: Gráficos en HTML (Imprimible a PDF)
                 with ce3:
-                    if fig_pie is not None:
+                    html_graficos = ""
+                    if fig_pie_prin is not None:
+                        html_graficos += f"<h3>Distribución: Productos Principales</h3>{fig_pie_prin.to_html(full_html=False, include_plotlyjs='cdn')}"
+                    if fig_pie_beb is not None:
+                        html_graficos += f"<h3>Distribución: Bebidas</h3>{fig_pie_beb.to_html(full_html=False, include_plotlyjs='cdn')}"
+                        
+                    if html_graficos != "":
                         html_content = f"""
                         <html>
                         <head>
@@ -497,9 +536,9 @@ def mostrar_modulo_tracking():
                         <body>
                             <h2>Reporte Comercial: {fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}</h2>
                             <h3>1. Matriz de Productos Vendidos</h3>
-                            {df_productos.to_html(index=False)}
-                            <h3>2. Distribución de Ingresos</h3>
-                            {fig_pie.to_html(full_html=False, include_plotlyjs='cdn')}
+                            {df_productos.drop(columns=["Categoría"], errors="ignore").to_html(index=False)}
+                            <h2>2. Gráficos de Ingresos</h2>
+                            {html_graficos}
                             <p style="text-align: center; color: #888;"><i>Para guardar como PDF, presione Ctrl + P y seleccione 'Guardar como PDF'</i></p>
                         </body>
                         </html>
